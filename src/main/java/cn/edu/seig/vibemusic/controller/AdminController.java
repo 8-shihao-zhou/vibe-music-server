@@ -342,9 +342,9 @@ public class AdminController {
      * @return 结果
      */
     @PatchMapping("/updateSongAudio/{id}")
-    public Result updateSongAudio(@PathVariable("id") Long songId, @RequestParam("audio") MultipartFile audio) {
+    public Result updateSongAudio(@PathVariable("id") Long songId, @RequestParam("audio") MultipartFile audio, @RequestParam("duration") String duration) {
         String audioUrl = minioService.uploadFile(audio, "songs");  // 上传到 songs 目录
-        return songService.updateSongAudio(songId, audioUrl);
+        return songService.updateSongAudio(songId, audioUrl, duration);
     }
 
     /**

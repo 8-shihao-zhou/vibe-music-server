@@ -416,14 +416,14 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
      */
     @Override
     @CacheEvict(cacheNames = "songCache", allEntries = true)
-    public Result updateSongAudio(Long songId, String audioUrl) {
+    public Result updateSongAudio(Long songId, String audioUrl, String duration) {
         Song song = songMapper.selectById(songId);
         String audio = song.getAudioUrl();
         if (audio != null && !audio.isEmpty()) {
             minioService.deleteFile(audio);
         }
 
-        song.setAudioUrl(audioUrl);
+        song.setAudioUrl(audioUrl).setDuration(duration);
         if (songMapper.updateById(song) == 0) {
             return Result.error(MessageConstant.UPDATE + MessageConstant.FAILED);
         }

@@ -50,7 +50,7 @@ public interface ISongService extends IService<Song> {
     Result updateSongCover(Long songId, String coverUrl);
 
     // 更新歌曲音频
-    Result updateSongAudio(Long songId, String audioUrl);
+    Result updateSongAudio(Long songId, String audioUrl, String duration);
 
     // 删除歌曲
     Result deleteSong(Long songId);
