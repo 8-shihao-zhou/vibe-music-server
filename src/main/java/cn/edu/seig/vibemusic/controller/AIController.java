@@ -35,15 +35,17 @@ public class AIController {
      * 地址: POST http://localhost:8080/api/ai/generate
      */
     @PostMapping("/generate")
-    public Result<String> generateVideo(@RequestParam("file") MultipartFile file) {
+    public Result<String> generateVideo(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "songName", required = false) String songName) {
         // 1. 校验文件
         if (file.isEmpty()) {
             return Result.error("请上传音频文件");
         }
 
         try {
-            // 2. 调用 Service 核心逻辑
-            String videoUrl = aiService.generateVideo(file);
+            // 2. 调用 Service 核心逻辑，传递歌曲名
+            String videoUrl = aiService.generateVideo(file, songName);
 
             // 3. 返回成功结果 (code=0, data=视频地址)
             return Result.success(videoUrl);
@@ -72,17 +74,34 @@ public class AIController {
             return Result.success(new ArrayList<>());
         }
 
+        // 读取歌曲名映射文件
+        Map<String, String> songMappings = new HashMap<>();
+        File mappingFile = new File(storagePath + "song_mapping.json");
+        if (mappingFile.exists()) {
+            try {
+                String content = new String(java.nio.file.Files.readAllBytes(mappingFile.toPath()));
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                songMappings = mapper.readValue(content, Map.class);
+            } catch (Exception e) {
+                System.err.println("读取歌曲名映射文件失败: " + e.getMessage());
+            }
+        }
+
         // 1. 过滤出 .mp4 文件
         // 2. 按最后修改时间倒序排列 (最新的在前面)
         // 3. 封装成前端需要的格式
+        final Map<String, String> finalMappings = songMappings;
         List<Map<String, Object>> list = Arrays.stream(files)
                 .filter(f -> f.getName().toLowerCase().endsWith(".mp4"))
                 .sorted(Comparator.comparingLong(File::lastModified).reversed())
                 .map(f -> {
                     Map<String, Object> map = new HashMap<>();
-                    map.put("fileName", f.getName());
+                    String fileName = f.getName();
+                    // 优先使用歌曲名，如果没有则使用文件名
+                    String displayName = finalMappings.getOrDefault(fileName, fileName);
+                    map.put("fileName", displayName);
                     // 拼接完整访问 URL
-                    map.put("url", "http://localhost:8080/files/" + f.getName());
+                    map.put("url", "http://localhost:8080/files/" + fileName);
                     // 格式化时间
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                     map.put("createTime", sdf.format(new Date(f.lastModified())));
