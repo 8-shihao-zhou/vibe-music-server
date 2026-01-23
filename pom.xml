@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>cn.edu.seig</groupId>
-    <artifactId>vibe-music-server</artifactId>
+    <artifactId>Vibe-music-server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>vibe-music-server</name>
     <description>vibe-music-server</description>
@@ -119,6 +119,13 @@
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
             <version>8.5.9</version>
+        </dependency>
+
+        <!--Hutool工具：Java发送HTTP请求-->
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>5.8.26</version>
         </dependency>
 
     </dependencies>
