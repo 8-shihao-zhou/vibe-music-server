@@ -10,7 +10,8 @@ public interface AIService {
     /**
      * 调用 AI 生成视频
      * @param file 前端上传的音频文件
+     * @param songName 歌曲名称（可选）
      * @return 生成的视频访问 URL
      */
-    String generateVideo(MultipartFile file);
+    String generateVideo(MultipartFile file, String songName);
 }
