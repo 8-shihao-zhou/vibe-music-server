@@ -1,4 +1,16 @@
 package cn.edu.seig.vibemusic.service;
 
+import org.springframework.web.multipart.MultipartFile;
+
+/**
+ * AI视频生成服务接口
+ */
 public interface AIService {
+
+    /**
+     * 调用 AI 生成视频
+     * @param file 前端上传的音频文件
+     * @return 生成的视频访问 URL
+     */
+    String generateVideo(MultipartFile file);
 }

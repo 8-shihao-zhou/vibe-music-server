@@ -2,9 +2,9 @@ spring:
   # 配置数据源
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://YOUR_MYSQL_HOST:3306/vibe_music?useUnicode=true&characterEncoding=utf-8&useSSL=false # 修改你的 MySQL 地址和库名
-    username: YOUR_MYSQL_USER # 修改你的 MySQL 用户名
-    password: YOUR_MYSQL_PASSWORD # 修改你的 MySQL 密码
+    url: jdbc:mysql://localhost:3306/vibe_music?useUnicode=true&characterEncoding=utf-8&useSSL=false # 修改你的 MySQL 地址和库名
+    username: root # 修改你的 MySQL 用户名
+    password: 215432 # 修改你的 MySQL 密码
     type: com.alibaba.druid.pool.DruidDataSource # 配置连接池
 
   # Redis服务连接配置
@@ -13,7 +13,7 @@ spring:
       database: 1
       host: 127.0.0.1
       port: 6379
-      password:
+      password: 215432
 
   servlet:
     multipart:
@@ -28,10 +28,10 @@ spring:
   # 配置邮件服务
   mail:
     # 配置邮箱账户和密码
-    host: smtp.example.com # 修改你的 SMTP 服务器地址
-    username: your-email@example.com # 修改你的邮箱账号
-    password: YOUR_EMAIL_APP_PASSWORD # 修改你的邮箱应用密码或授权码
-    protocol: smtp
+    host: smtp.qq.com # 修改你的 SMTP 服务器地址
+    username: 811107052@qq.com # 修改你的邮箱账号
+    password: gcpfkcjjcfkobdjf # 修改你的邮箱应用密码或授权码
+    protocol: smtps
     properties:
       mail:
         smtp:
@@ -77,7 +77,19 @@ role-path-permissions:
       - "/feedback/"
 
 minio:
-  endpoint: http://YOUR_MINIO_HOST:9000 # 修改你的 MinIO 端点
-  accessKey: YOUR_MINIO_ACCESS_KEY # 修改你的 MinIO Access Key
-  secretKey: YOUR_MINIO_SECRET_KEY # 修改你的 MinIO Secret Key
+  endpoint: http://127.0.0.1:9000 # 修改你的 MinIO 端点
+  accessKey: minioadmin # 修改你的 MinIO Access Key
+  secretKey: minioadmin # 修改你的 MinIO Secret Key
   bucket: vibe-music-data # 确认 Bucket 名称与你创建的一致
+
+# ==========================================
+# AI大模型服务配置
+# ==========================================
+ai:
+  # 1. 既然你用了 Xshell 隧道，这里必须填 localhost:8000
+  # (原理：Xshell 把你本地的 8000 转发到了学校服务器的 8000)
+  server-url: http://localhost:8000/generate
+
+  # 2. 生成的视频存放路径 (请确保这个文件夹存在，或者代码里自动创建)
+  # 注意：Windows下路径分隔符用反斜杠 /，最后要带 /
+  storage-path: D:/music-video/AI-MusicMV/
