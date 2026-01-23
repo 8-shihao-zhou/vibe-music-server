@@ -294,27 +294,64 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
     @Override
     @CacheEvict(cacheNames = "songCache", allEntries = true)
     public Result addSong(SongAddDTO songAddDTO) {
+        System.out.println("========== 开始添加歌曲 ==========");
+        System.out.println("接收到的数据:");
+        System.out.println("  artistId: " + songAddDTO.getArtistId());
+        System.out.println("  songName: " + songAddDTO.getSongName());
+        System.out.println("  album: " + songAddDTO.getAlbum());
+        System.out.println("  style: " + songAddDTO.getStyle());
+        System.out.println("  releaseTime: " + songAddDTO.getReleaseTime());
+        
         Song song = new Song();
-        BeanUtils.copyProperties(songAddDTO, song);
+        // 手动设置字段，确保正确映射
+        song.setArtistId(songAddDTO.getArtistId());
+        song.setSongName(songAddDTO.getSongName());
+        song.setAlbum(songAddDTO.getAlbum());
+        song.setStyle(songAddDTO.getStyle());
+        song.setReleaseTime(songAddDTO.getReleaseTime());
+        
+        // ✅ 设置默认值为 null 而不是空字符串
+        song.setDuration("00:00");
+        song.setCoverUrl(null);  // null 而不是 ""
+        song.setAudioUrl(null);  // null 而不是 ""
+        song.setLyric(null);
+
+        System.out.println("准备插入的 Song 对象:");
+        System.out.println("  artistId: " + song.getArtistId());
+        System.out.println("  songName: " + song.getSongName());
+        System.out.println("  album: " + song.getAlbum());
+        System.out.println("  style: " + song.getStyle());
 
         // 插入歌曲记录
-        if (songMapper.insert(song) == 0) {
+        int insertResult = songMapper.insert(song);
+        System.out.println("插入结果: " + insertResult);
+        
+        if (insertResult == 0) {
+            System.out.println("插入失败！");
             return Result.error(MessageConstant.ADD + MessageConstant.FAILED);
         }
 
-        // 获取刚插入的歌曲记录
-        Song songInDB = songMapper.selectOne(new QueryWrapper<Song>()
-                .eq("artist_id", songAddDTO.getArtistId())
-                .eq("name", songAddDTO.getSongName())
-                .eq("album", songAddDTO.getAlbum())
-                .orderByDesc("id")
-                .last("LIMIT 1"));
-
-        if (songInDB == null) {
+        // MyBatis-Plus insert 后会自动填充主键到 song 对象
+        Long songId = song.getSongId();
+        System.out.println("插入后的 songId: " + songId);
+        System.out.println("插入后的 songName: " + song.getSongName());
+        System.out.println("插入后的 album: " + song.getAlbum());
+        
+        if (songId == null) {
+            System.out.println("songId 为 null！");
             return Result.error(MessageConstant.SONG + MessageConstant.NOT_FOUND);
         }
-
-        Long songId = songInDB.getSongId();
+        
+        // 验证数据库中的数据
+        Song verifyQuery = songMapper.selectById(songId);
+        if (verifyQuery != null) {
+            System.out.println("数据库验证:");
+            System.out.println("  查询到的 songName: " + verifyQuery.getSongName());
+            System.out.println("  查询到的 album: " + verifyQuery.getAlbum());
+            System.out.println("  查询到的 artistId: " + verifyQuery.getArtistId());
+        } else {
+            System.out.println("数据库验证失败：查询不到刚插入的记录！");
+        }
 
         // 解析风格字段（多个风格以逗号分隔）
         String styleStr = songAddDTO.getStyle();
@@ -333,7 +370,10 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
             }
         }
 
-        return Result.success(MessageConstant.ADD + MessageConstant.SUCCESS);
+        // 返回成功结果，包含新创建的歌曲 ID
+        Map<String, Object> data = new HashMap<>();
+        data.put("songId", songId);
+        return Result.success(data);
     }
 
     /**

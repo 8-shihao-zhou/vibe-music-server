@@ -69,8 +69,39 @@ public class MinioServiceImpl implements MinioService {
     @Override
     public void deleteFile(String fileUrl) {
         try {
+            // 检查 fileUrl 是否为空
+            if (fileUrl == null || fileUrl.trim().isEmpty()) {
+                System.out.println("警告: 文件 URL 为空，跳过删除操作");
+                return;
+            }
+
             // 解析 URL，获取文件路径
-            String filePath = fileUrl.replace(endpoint + "/" + bucketName + "/", "");
+            String prefix = endpoint + "/" + bucketName + "/";
+            String filePath;
+            
+            if (fileUrl.startsWith(prefix)) {
+                filePath = fileUrl.substring(prefix.length());
+            } else if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+                // 如果是完整 URL 但格式不匹配，尝试提取路径部分
+                int bucketIndex = fileUrl.indexOf("/" + bucketName + "/");
+                if (bucketIndex != -1) {
+                    filePath = fileUrl.substring(bucketIndex + bucketName.length() + 2);
+                } else {
+                    System.out.println("警告: 无法解析文件 URL: " + fileUrl);
+                    return;
+                }
+            } else {
+                // 如果不是完整 URL，直接作为文件路径使用
+                filePath = fileUrl;
+            }
+
+            // 检查文件路径是否有效
+            if (filePath.trim().isEmpty()) {
+                System.out.println("警告: 解析后的文件路径为空，跳过删除操作");
+                return;
+            }
+
+            System.out.println("正在删除文件: " + filePath);
 
             // 删除文件
             minioClient.removeObject(
@@ -80,8 +111,13 @@ public class MinioServiceImpl implements MinioService {
                             .build()
             );
 
+            System.out.println("文件删除成功: " + filePath);
+
         } catch (Exception e) {
-            throw new RuntimeException("文件删除失败: " + e.getMessage());
+            System.err.println("文件删除失败: " + fileUrl);
+            System.err.println("错误详情: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("文件删除失败: " + e.getMessage() + ": cause(" + e.getCause() + ")");
         }
     }
 }
