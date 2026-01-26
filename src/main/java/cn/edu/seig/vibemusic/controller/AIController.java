@@ -91,6 +91,7 @@ public class AIController {
             return Result.success(new ArrayList<>());
         }
 
+<<<<<<< HEAD
         // 打印所有文件名
         for (File f : files) {
             System.out.println(">>> [DEBUG] 发现文件: " + f.getName() + " (是否为mp4: " + f.getName().toLowerCase().endsWith(".mp4") + ")");
@@ -99,14 +100,24 @@ public class AIController {
         // 读取歌曲名映射文件
         Map<String, String> songMappings = new HashMap<>();
         File mappingFile = new File(userStoragePath + "song_mapping.json");
+=======
+        // 读取歌曲名映射文件
+        Map<String, String> songMappings = new HashMap<>();
+        File mappingFile = new File(storagePath + "song_mapping.json");
+>>>>>>> 8da8e4f07010a281660b293a79da2621f643f564
         if (mappingFile.exists()) {
             try {
                 String content = new String(java.nio.file.Files.readAllBytes(mappingFile.toPath()));
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 songMappings = mapper.readValue(content, Map.class);
+<<<<<<< HEAD
                 System.out.println(">>> [DEBUG] 读取到歌曲映射: " + songMappings.size() + " 条");
             } catch (Exception e) {
                 System.err.println(">>> [DEBUG] 读取歌曲名映射文件失败: " + e.getMessage());
+=======
+            } catch (Exception e) {
+                System.err.println("读取歌曲名映射文件失败: " + e.getMessage());
+>>>>>>> 8da8e4f07010a281660b293a79da2621f643f564
             }
         }
 
@@ -123,8 +134,13 @@ public class AIController {
                     // 优先使用歌曲名，如果没有则使用文件名
                     String displayName = finalMappings.getOrDefault(fileName, fileName);
                     map.put("fileName", displayName);
+<<<<<<< HEAD
                     // 拼接完整访问 URL（包含用户ID路径）
                     map.put("url", "http://localhost:8080/files/user_" + userId + "/" + fileName);
+=======
+                    // 拼接完整访问 URL
+                    map.put("url", "http://localhost:8080/files/" + fileName);
+>>>>>>> 8da8e4f07010a281660b293a79da2621f643f564
                     // 格式化时间
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                     map.put("createTime", sdf.format(new Date(f.lastModified())));
