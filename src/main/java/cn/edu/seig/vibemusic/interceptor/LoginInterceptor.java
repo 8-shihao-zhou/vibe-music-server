@@ -46,12 +46,16 @@ public class LoginInterceptor implements HandlerInterceptor {
         }
 
         String token = request.getHeader("Authorization");
+        String path = request.getRequestURI();
+        
+        System.out.println(">>> [拦截器] 请求路径: " + path);
+        System.out.println(">>> [拦截器] Authorization 头: " + (token != null ? token.substring(0, Math.min(30, token.length())) + "..." : "null"));
 
         if (token != null && token.startsWith("Bearer ")) {
             token = token.substring(7); // 去掉 "Bearer " 前缀
+            System.out.println(">>> [拦截器] 提取的 token: " + token.substring(0, Math.min(20, token.length())) + "...");
         }
-        String path = request.getRequestURI();
-
+        
         // 获取 Spring 的 PathMatcher 实例
         PathMatcher pathMatcher = new AntPathMatcher();
 
@@ -80,24 +84,36 @@ public class LoginInterceptor implements HandlerInterceptor {
             // 从redis中获取相同的token
             ValueOperations<String, String> operations = stringRedisTemplate.opsForValue();
             String redisToken = operations.get(token);
+            System.out.println(">>> [拦截器] Redis 中的 token: " + (redisToken != null ? "存在" : "不存在"));
+            
             if (redisToken == null) {
                 // token失效
+                System.out.println(">>> [拦截器] Token 在 Redis 中不存在，可能已过期");
                 throw new RuntimeException();
             }
 
             Map<String, Object> claims = JwtUtil.parseToken(token);
+            System.out.println(">>> [拦截器] 解析 token 成功，claims: " + claims);
+            
             String role = (String) claims.get(JwtClaimsConstant.ROLE);
             String requestURI = request.getRequestURI();
+            
+            System.out.println(">>> [拦截器] 用户角色: " + role);
+            System.out.println(">>> [拦截器] 请求 URI: " + requestURI);
 
             if (rolePermissionManager.hasPermission(role, requestURI)) {
                 // 把业务数据存储到ThreadLocal中
                 ThreadLocalUtil.set(claims);
+                System.out.println(">>> [拦截器] 权限检查通过，已设置 ThreadLocal");
                 return true;
             } else {
+                System.out.println(">>> [拦截器] 权限检查失败，角色 " + role + " 无权访问 " + requestURI);
                 sendErrorResponse(response, 403, MessageConstant.NO_PERMISSION); // 无权限访问
                 return false;
             }
         } catch (Exception e) {
+            System.out.println(">>> [拦截器] Token 验证失败: " + e.getMessage());
+            e.printStackTrace();
             sendErrorResponse(response, 401, MessageConstant.SESSION_EXPIRED); // 令牌无效
             return false;
         }

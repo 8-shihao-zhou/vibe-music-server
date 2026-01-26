@@ -1,6 +1,7 @@
 package cn.edu.seig.vibemusic.service.impl;
 
 import cn.edu.seig.vibemusic.service.AIService;
+import cn.edu.seig.vibemusic.utils.UserContext;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.http.HttpRequest;
@@ -25,6 +26,22 @@ public class AIServiceImpl implements AIService {
     private String storagePath; // D:/music-video-storage/
 
     /**
+     * 获取当前用户的存储路径
+     */
+    private String getUserStoragePath() {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new RuntimeException("用户未登录");
+        }
+        String userPath = storagePath + "user_" + userId + File.separator;
+        // 确保用户目录存在
+        if (!FileUtil.exist(userPath)) {
+            FileUtil.mkdir(userPath);
+        }
+        return userPath;
+    }
+
+    /**
      * 调用 AI 生成视频
      * @param file 前端上传的音频文件
      * @param songName 歌曲名称（可选）
@@ -32,14 +49,13 @@ public class AIServiceImpl implements AIService {
      */
     @Override
     public String generateVideo(MultipartFile file, String songName) {
-        // 1. 确保本地存储目录存在
-        if (!FileUtil.exist(storagePath)) {
-            FileUtil.mkdir(storagePath);
-        }
+        // 1. 获取当前用户的存储路径
+        String userStoragePath = getUserStoragePath();
+        Long userId = UserContext.getUserId();
 
         // 2. 将前端上传的 MP3 暂存为文件 (因为 Hutool 发请求需要 File 对象)
         String tempMp3Name = IdUtil.simpleUUID() + ".mp3";
-        File tempMp3File = new File(storagePath + tempMp3Name);
+        File tempMp3File = new File(userStoragePath + tempMp3Name);
 
         try {
             file.transferTo(tempMp3File);
@@ -59,7 +75,7 @@ public class AIServiceImpl implements AIService {
 
                     // 生成视频文件名
                     String videoName = "mv_" + IdUtil.simpleUUID() + ".mp4";
-                    String finalVideoPath = storagePath + videoName;
+                    String finalVideoPath = userStoragePath + videoName;
 
                     // 写入硬盘
                     FileUtil.writeBytes(videoBytes, finalVideoPath);
@@ -67,13 +83,12 @@ public class AIServiceImpl implements AIService {
 
                     // 5. 保存歌曲名映射关系
                     if (songName != null && !songName.isEmpty()) {
-                        saveSongNameMapping(videoName, songName);
+                        saveSongNameMapping(userStoragePath, videoName, songName);
                     }
 
                     // 6. 拼接成前端可访问的 URL
-                    // 假设你的后端端口是 8080，路径映射是 /files/
-                    // 返回: http://localhost:8080/files/mv_xxxx.mp4
-                    return "http://localhost:8080/files/" + videoName;
+                    // 返回: http://localhost:8080/files/user_123/mv_xxxx.mp4
+                    return "http://localhost:8080/files/user_" + userId + "/" + videoName;
                 } else {
                     throw new RuntimeException("AI 服务内部错误，状态码: " + response.getStatus());
                 }
@@ -91,9 +106,9 @@ public class AIServiceImpl implements AIService {
     /**
      * 保存文件名和歌曲名的映射关系到 JSON 文件
      */
-    private void saveSongNameMapping(String fileName, String songName) {
+    private void saveSongNameMapping(String userStoragePath, String fileName, String songName) {
         try {
-            String mappingFilePath = storagePath + "song_mapping.json";
+            String mappingFilePath = userStoragePath + "song_mapping.json";
             File mappingFile = new File(mappingFilePath);
             
             JSONObject mappings;

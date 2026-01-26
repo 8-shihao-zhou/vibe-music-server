@@ -175,6 +175,10 @@ public class UserController {
      */
     @PostMapping("/logout")
     public Result logout(@RequestHeader("Authorization") String token) {
+        // 去掉 "Bearer " 前缀
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
         return userService.logout(token);
     }
 

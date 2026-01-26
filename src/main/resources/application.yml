@@ -59,7 +59,7 @@ mybatis-plus:
 
   global-config:
     db-config: # 数据库配置
-      table-prefix: tb_  # 表名前缀为tb_，表名为前缀连接类名（小写）
+      table-prefix: tb_ # 表名前缀为tb_，表名为前缀连接类名（小写）
 
 # 定义角色和路径权限的映射关系
 role-path-permissions:
@@ -75,6 +75,7 @@ role-path-permissions:
       - "/comment/"
       - "/banner/"
       - "/feedback/"
+      - "/api/ai/" # AI 音乐视频生成功能
 
 minio:
   endpoint: http://127.0.0.1:9000 # 修改你的 MinIO 端点

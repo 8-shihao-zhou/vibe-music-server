@@ -26,8 +26,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/artist/getAllArtists", "/artist/getArtistDetail/**",
                         "/song/getAllSongs", "/song/getRecommendedSongs", "/song/getSongDetail/**",
 
-                        //新增这两行
-                        "/api/ai/**",   //放行 AI 生成接口，不再报 401
+                        // 只放行静态文件访问，AI 接口需要登录验证
                         "/files/**"     //放行 D盘视频文件的访问，让前端能播放
                 );
     }

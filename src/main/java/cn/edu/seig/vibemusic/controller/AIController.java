@@ -57,33 +57,56 @@ public class AIController {
     }
 
     /**
-     * 获取历史生成记录列表
+     * 获取历史生成记录列表（仅返回当前用户的）
      * 地址: GET http://localhost:8080/api/ai/history
      */
     @GetMapping("/history")
     public Result<List<Map<String, Object>>> getHistory() {
-        // 现在这里可以识别 storagePath 了
-        File dir = new File(storagePath);
+        // 获取当前登录用户ID
+        Long userId = cn.edu.seig.vibemusic.utils.UserContext.getUserId();
+        System.out.println(">>> [DEBUG] 当前用户ID: " + userId);
+        
+        if (userId == null) {
+            System.out.println(">>> [DEBUG] 用户未登录");
+            return Result.error("用户未登录");
+        }
+
+        // 用户专属目录
+        String userStoragePath = storagePath + "user_" + userId + File.separator;
+        System.out.println(">>> [DEBUG] 用户存储路径: " + userStoragePath);
+        
+        File dir = new File(userStoragePath);
+        System.out.println(">>> [DEBUG] 目录是否存在: " + dir.exists());
 
         if (!dir.exists()) {
+            System.out.println(">>> [DEBUG] 目录不存在，返回空列表");
             return Result.success(new ArrayList<>());
         }
 
         File[] files = dir.listFiles();
+        System.out.println(">>> [DEBUG] 文件数量: " + (files != null ? files.length : 0));
+        
         if (files == null) {
+            System.out.println(">>> [DEBUG] 无法读取文件列表");
             return Result.success(new ArrayList<>());
+        }
+
+        // 打印所有文件名
+        for (File f : files) {
+            System.out.println(">>> [DEBUG] 发现文件: " + f.getName() + " (是否为mp4: " + f.getName().toLowerCase().endsWith(".mp4") + ")");
         }
 
         // 读取歌曲名映射文件
         Map<String, String> songMappings = new HashMap<>();
-        File mappingFile = new File(storagePath + "song_mapping.json");
+        File mappingFile = new File(userStoragePath + "song_mapping.json");
         if (mappingFile.exists()) {
             try {
                 String content = new String(java.nio.file.Files.readAllBytes(mappingFile.toPath()));
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 songMappings = mapper.readValue(content, Map.class);
+                System.out.println(">>> [DEBUG] 读取到歌曲映射: " + songMappings.size() + " 条");
             } catch (Exception e) {
-                System.err.println("读取歌曲名映射文件失败: " + e.getMessage());
+                System.err.println(">>> [DEBUG] 读取歌曲名映射文件失败: " + e.getMessage());
             }
         }
 
@@ -100,8 +123,8 @@ public class AIController {
                     // 优先使用歌曲名，如果没有则使用文件名
                     String displayName = finalMappings.getOrDefault(fileName, fileName);
                     map.put("fileName", displayName);
-                    // 拼接完整访问 URL
-                    map.put("url", "http://localhost:8080/files/" + fileName);
+                    // 拼接完整访问 URL（包含用户ID路径）
+                    map.put("url", "http://localhost:8080/files/user_" + userId + "/" + fileName);
                     // 格式化时间
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                     map.put("createTime", sdf.format(new Date(f.lastModified())));
@@ -111,6 +134,7 @@ public class AIController {
                 })
                 .collect(Collectors.toList());
 
+        System.out.println(">>> [DEBUG] 返回MV数量: " + list.size());
         return Result.success(list);
     }
 }
