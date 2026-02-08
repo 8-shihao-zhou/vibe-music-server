@@ -66,6 +66,7 @@ role-path-permissions:
   permissions:
     ROLE_ADMIN:
       - "/admin/"
+      - "/notification/admin/"
     ROLE_USER:
       - "/user/"
       - "/playlist/"
@@ -75,6 +76,7 @@ role-path-permissions:
       - "/comment/"
       - "/banner/"
       - "/feedback/"
+      - "/notification/user/"
       - "/api/ai/" # AI 音乐视频生成功能
 
 minio:

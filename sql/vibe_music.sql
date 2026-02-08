@@ -2748,3 +2748,32 @@ INSERT INTO `tb_user_favorite` VALUES (427, 126, 0, 207, NULL, '2025-04-07 18:17
 INSERT INTO `tb_user_favorite` VALUES (432, 126, 1, NULL, 7, '2025-04-19 14:59:29');
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+
+-- ----------------------------
+-- Table structure for tb_notification
+-- ----------------------------
+DROP TABLE IF EXISTS `tb_notification`;
+CREATE TABLE `tb_notification`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` bigint(0) NOT NULL COMMENT '接收者用户ID',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '通知标题',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '通知内容',
+  `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'SYSTEM' COMMENT '通知类型：SYSTEM-系统通知，ACTIVITY-活动通知，PERSONAL-个人消息',
+  `priority` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'NORMAL' COMMENT '优先级：NORMAL-普通，IMPORTANT-重要，URGENT-紧急',
+  `is_read` tinyint(0) DEFAULT 0 COMMENT '是否已读：0-未读，1-已读',
+  `is_deleted` tinyint(0) DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `read_time` datetime NULL DEFAULT NULL COMMENT '阅读时间',
+  `sender_id` bigint(0) NULL DEFAULT NULL COMMENT '发送者ID（管理员ID）',
+  `scheduled_time` datetime NULL DEFAULT NULL COMMENT '定时发送时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_user_id`(`user_id`) USING BTREE,
+  INDEX `idx_create_time`(`create_time`) USING BTREE,
+  INDEX `idx_is_read`(`is_read`) USING BTREE,
+  INDEX `idx_type`(`type`) USING BTREE,
+  INDEX `idx_priority`(`priority`) USING BTREE,
+  INDEX `idx_is_deleted`(`is_deleted`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '通知消息表' ROW_FORMAT = Dynamic;
+
+SET FOREIGN_KEY_CHECKS = 1;

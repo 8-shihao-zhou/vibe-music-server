@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.seig.vibemusic.mapper.NotificationMapper">
+
+    <!-- 通用结果映射 -->
+    <resultMap id="BaseResultMap" type="cn.edu.seig.vibemusic.model.entity.Notification">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="title" property="title"/>
+        <result column="content" property="content"/>
+        <result column="type" property="type"/>
+        <result column="priority" property="priority"/>
+        <result column="is_read" property="isRead"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="create_time" property="createTime"/>
+        <result column="read_time" property="readTime"/>
+        <result column="sender_id" property="senderId"/>
+        <result column="scheduled_time" property="scheduledTime"/>
+    </resultMap>
+
+    <!-- 批量插入通知 -->
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO tb_notification (user_id, title, content, type, priority, is_read, is_deleted, create_time, sender_id, scheduled_time)
+        VALUES
+        <foreach collection="notifications" item="item" separator=",">
+            (#{item.userId}, #{item.title}, #{item.content}, #{item.type}, #{item.priority}, #{item.isRead}, #{item.isDeleted}, #{item.createTime}, #{item.senderId}, #{item.scheduledTime})
+        </foreach>
+    </insert>
+
+    <!-- 根据用户ID查询通知列表（按创建时间倒序，排除已删除） -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT id, user_id, title, content, type, priority, is_read, is_deleted, create_time, read_time, sender_id, scheduled_time
+        FROM tb_notification
+        WHERE user_id = #{userId} AND is_deleted = 0
+        ORDER BY priority DESC, create_time DESC
+    </select>
+
+    <!-- 查询所有通知（分页，按创建时间倒序） -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT id, user_id, title, content, type, priority, is_read, is_deleted, create_time, read_time, sender_id, scheduled_time
+        FROM tb_notification
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 统计通知总数 -->
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM tb_notification
+    </select>
+
+    <!-- 更新通知已读状态 -->
+    <update id="updateReadStatus">
+        UPDATE tb_notification
+        SET is_read = #{isRead},
+            read_time = #{readTime}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 统计用户未读通知数量（排除已删除） -->
+    <select id="countUnreadByUserId" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM tb_notification
+        WHERE user_id = #{userId} AND is_read = 0 AND is_deleted = 0
+    </select>
+
+    <!-- 验证通知所有权（排除已删除） -->
+    <select id="countByIdAndUserId" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM tb_notification
+        WHERE id = #{id} AND user_id = #{userId} AND is_deleted = 0
+    </select>
+
+    <!-- 批量标记已读 -->
+    <update id="batchMarkAsRead">
+        UPDATE tb_notification
+        SET is_read = 1, read_time = #{readTime}
+        WHERE user_id = #{userId}
+        AND id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND is_deleted = 0
+    </update>
+
+    <!-- 批量删除通知（软删除） -->
+    <update id="batchDelete">
+        UPDATE tb_notification
+        SET is_deleted = 1
+        WHERE user_id = #{userId}
+        AND id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 根据条件查询通知列表 -->
+    <select id="selectByConditions" resultMap="BaseResultMap">
+        SELECT id, user_id, title, content, type, priority, is_read, is_deleted, create_time, read_time, sender_id, scheduled_time
+        FROM tb_notification
+        WHERE user_id = #{userId} AND is_deleted = 0
+        <if test="type != null and type != ''">
+            AND type = #{type}
+        </if>
+        <if test="priority != null and priority != ''">
+            AND priority = #{priority}
+        </if>
+        <if test="isRead != null">
+            AND is_read = #{isRead}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY priority DESC, create_time DESC
+    </select>
+
+    <!-- 统计各类型通知数量 -->
+    <select id="countByType" resultType="java.util.Map">
+        SELECT type, COUNT(*) as count
+        FROM tb_notification
+        WHERE user_id = #{userId} AND is_deleted = 0
+        GROUP BY type
+    </select>
+
+    <!-- 统计管理员发送的通知数量 -->
+    <select id="countBySender" resultType="java.util.Map">
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN is_read = 1 THEN 1 ELSE 0 END) as readCount,
+            SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) as unreadCount
+        FROM tb_notification
+        WHERE sender_id = #{senderId}
+    </select>
+
+</mapper>

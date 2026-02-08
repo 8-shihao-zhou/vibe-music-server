@@ -49,16 +49,9 @@ public class AIServiceImpl implements AIService {
      */
     @Override
     public String generateVideo(MultipartFile file, String songName) {
-<<<<<<< HEAD
         // 1. 获取当前用户的存储路径
         String userStoragePath = getUserStoragePath();
         Long userId = UserContext.getUserId();
-=======
-        // 1. 确保本地存储目录存在
-        if (!FileUtil.exist(storagePath)) {
-            FileUtil.mkdir(storagePath);
-        }
->>>>>>> 8da8e4f07010a281660b293a79da2621f643f564
 
         // 2. 将前端上传的 MP3 暂存为文件 (因为 Hutool 发请求需要 File 对象)
         String tempMp3Name = IdUtil.simpleUUID() + ".mp3";
@@ -90,22 +83,12 @@ public class AIServiceImpl implements AIService {
 
                     // 5. 保存歌曲名映射关系
                     if (songName != null && !songName.isEmpty()) {
-<<<<<<< HEAD
                         saveSongNameMapping(userStoragePath, videoName, songName);
                     }
 
                     // 6. 拼接成前端可访问的 URL
                     // 返回: http://localhost:8080/files/user_123/mv_xxxx.mp4
                     return "http://localhost:8080/files/user_" + userId + "/" + videoName;
-=======
-                        saveSongNameMapping(videoName, songName);
-                    }
-
-                    // 6. 拼接成前端可访问的 URL
-                    // 假设你的后端端口是 8080，路径映射是 /files/
-                    // 返回: http://localhost:8080/files/mv_xxxx.mp4
-                    return "http://localhost:8080/files/" + videoName;
->>>>>>> 8da8e4f07010a281660b293a79da2621f643f564
                 } else {
                     throw new RuntimeException("AI 服务内部错误，状态码: " + response.getStatus());
                 }
@@ -123,15 +106,9 @@ public class AIServiceImpl implements AIService {
     /**
      * 保存文件名和歌曲名的映射关系到 JSON 文件
      */
-<<<<<<< HEAD
     private void saveSongNameMapping(String userStoragePath, String fileName, String songName) {
         try {
             String mappingFilePath = userStoragePath + "song_mapping.json";
-=======
-    private void saveSongNameMapping(String fileName, String songName) {
-        try {
-            String mappingFilePath = storagePath + "song_mapping.json";
->>>>>>> 8da8e4f07010a281660b293a79da2621f643f564
             File mappingFile = new File(mappingFilePath);
             
             JSONObject mappings;
