@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.seig.vibemusic.mapper.CommentLikeMapper">
+
+    <!-- 检查用户是否已点赞评论 -->
+    <select id="checkUserLike" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM tb_comment_like
+        WHERE comment_id = #{commentId} AND user_id = #{userId}
+    </select>
+
+</mapper>

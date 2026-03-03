@@ -206,9 +206,16 @@ public class PlaylistServiceImpl extends ServiceImpl<PlaylistMapper, Playlist> i
     public Result<PlaylistDetailVO> getPlaylistDetail(Long playlistId, HttpServletRequest request) {
         PlaylistDetailVO playlistDetailVO = playlistMapper.getPlaylistDetailById(playlistId);
 
+        // 检查歌单是否存在
+        if (playlistDetailVO == null) {
+            return Result.error("歌单不存在");
+        }
+
         // 设置默认状态
         List<SongVO> songVOList = playlistDetailVO.getSongs();
-        songVOList.forEach(songVO -> songVO.setLikeStatus(LikeStatusEnum.DEFAULT.getId()));
+        if (songVOList != null) {
+            songVOList.forEach(songVO -> songVO.setLikeStatus(LikeStatusEnum.DEFAULT.getId()));
+        }
         playlistDetailVO.setLikeStatus(LikeStatusEnum.DEFAULT.getId());
 
         // 获取请求头中的 token
@@ -249,9 +256,11 @@ public class PlaylistServiceImpl extends ServiceImpl<PlaylistMapper, Playlist> i
                         .collect(Collectors.toSet());
 
                 // 检查并更新状态
-                for (SongVO songVO : songVOList) {
-                    if (favoriteSongIds.contains(songVO.getSongId())) {
-                        songVO.setLikeStatus(LikeStatusEnum.LIKE.getId());
+                if (songVOList != null) {
+                    for (SongVO songVO : songVOList) {
+                        if (favoriteSongIds.contains(songVO.getSongId())) {
+                            songVO.setLikeStatus(LikeStatusEnum.LIKE.getId());
+                        }
                     }
                 }
             }

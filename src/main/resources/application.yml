@@ -78,6 +78,7 @@ role-path-permissions:
       - "/feedback/"
       - "/notification/user/"
       - "/api/ai/" # AI 音乐视频生成功能
+      - "/community/" # 社区功能
 
 minio:
   endpoint: http://127.0.0.1:9000 # 修改你的 MinIO 端点

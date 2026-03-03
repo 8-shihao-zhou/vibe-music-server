@@ -64,7 +64,9 @@ public class LoginInterceptor implements HandlerInterceptor {
                 PathConstant.PLAYLIST_DETAIL_PATH,
                 PathConstant.ARTIST_DETAIL_PATH,
                 PathConstant.SONG_LIST_PATH,
-                PathConstant.SONG_DETAIL_PATH
+                PathConstant.SONG_DETAIL_PATH,
+                "/community/post/list",      // 社区帖子列表
+                "/community/post/detail/**"  // 社区帖子详情
         );
 
         // 检查路径是否匹配
@@ -104,7 +106,14 @@ public class LoginInterceptor implements HandlerInterceptor {
             if (rolePermissionManager.hasPermission(role, requestURI)) {
                 // 把业务数据存储到ThreadLocal中
                 ThreadLocalUtil.set(claims);
-                System.out.println(">>> [拦截器] 权限检查通过，已设置 ThreadLocal");
+                
+                // 同时存入 Request Attribute（解决 ThreadLocal 线程切换问题）
+                request.setAttribute("userId", claims.get(JwtClaimsConstant.USER_ID));
+                request.setAttribute("username", claims.get(JwtClaimsConstant.USERNAME));
+                request.setAttribute("email", claims.get(JwtClaimsConstant.EMAIL));
+                request.setAttribute("role", claims.get(JwtClaimsConstant.ROLE));
+                
+                System.out.println(">>> [拦截器] 权限检查通过，已设置 ThreadLocal 和 Request Attribute，userId: " + claims.get(JwtClaimsConstant.USER_ID));
                 return true;
             } else {
                 System.out.println(">>> [拦截器] 权限检查失败，角色 " + role + " 无权访问 " + requestURI);
@@ -122,6 +131,7 @@ public class LoginInterceptor implements HandlerInterceptor {
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
         // 清空ThreadLocal中的数据
+        System.out.println(">>> [拦截器] afterCompletion() - 清除 ThreadLocal，路径: " + request.getRequestURI());
         ThreadLocalUtil.remove();
     }
 }

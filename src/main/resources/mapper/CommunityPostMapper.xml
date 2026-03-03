@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.seig.vibemusic.mapper.CommunityPostMapper">
+
+    <!-- 分页查询帖子列表 -->
+    <select id="selectPostPage" resultType="cn.edu.seig.vibemusic.model.vo.PostVO">
+        SELECT
+            p.id,
+            p.user_id AS userId,
+            u.username,
+            u.user_avatar AS userAvatar,
+            p.title,
+            p.content,
+            p.category,
+            p.tags,
+            p.cover_url AS coverUrl,
+            p.view_count AS viewCount,
+            p.like_count AS likeCount,
+            p.comment_count AS commentCount,
+            p.is_top AS isTop,
+            p.is_hot AS isHot,
+            p.status,
+            p.create_time AS createTime,
+            p.update_time AS updateTime,
+            CASE WHEN pl.id IS NOT NULL THEN 1 ELSE 0 END AS isLiked
+        FROM tb_community_post p
+        LEFT JOIN tb_user u ON p.user_id = u.id
+        LEFT JOIN tb_post_like pl ON p.id = pl.post_id AND pl.user_id = #{currentUserId}
+        WHERE p.status = 1
+        <if test="category != null and category != ''">
+            AND p.category = #{category}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (p.title LIKE CONCAT('%', #{keyword}, '%') OR p.content LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="tag != null and tag != ''">
+            AND p.tags LIKE CONCAT('%', #{tag}, '%')
+        </if>
+        <if test="userId != null">
+            AND p.user_id = #{userId}
+        </if>
+        <if test="isHot != null and isHot == 1">
+            AND p.is_hot = 1
+        </if>
+        ORDER BY
+        <choose>
+            <when test="sortBy == 'hot'">
+                p.like_count DESC, p.view_count DESC, p.create_time DESC
+            </when>
+            <when test="sortBy == 'view'">
+                p.view_count DESC, p.create_time DESC
+            </when>
+            <otherwise>
+                p.is_top DESC, p.create_time DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 查询帖子详情 -->
+    <select id="selectPostDetail" resultType="cn.edu.seig.vibemusic.model.vo.PostVO">
+        SELECT
+            p.id,
+            p.user_id AS userId,
+            u.username,
+            u.user_avatar AS userAvatar,
+            p.title,
+            p.content,
+            p.category,
+            p.tags,
+            p.cover_url AS coverUrl,
+            p.view_count AS viewCount,
+            p.like_count AS likeCount,
+            p.comment_count AS commentCount,
+            p.is_top AS isTop,
+            p.is_hot AS isHot,
+            p.status,
+            p.create_time AS createTime,
+            p.update_time AS updateTime,
+            CASE WHEN pl.id IS NOT NULL THEN 1 ELSE 0 END AS isLiked
+        FROM tb_community_post p
+        LEFT JOIN tb_user u ON p.user_id = u.id
+        LEFT JOIN tb_post_like pl ON p.id = pl.post_id AND pl.user_id = #{currentUserId}
+        WHERE p.id = #{postId}
+    </select>
+
+    <!-- 增加浏览次数 -->
+    <update id="incrementViewCount">
+        UPDATE tb_community_post
+        SET view_count = view_count + 1
+        WHERE id = #{postId}
+    </update>
+
+    <!-- 增加评论数 -->
+    <update id="incrementCommentCount">
+        UPDATE tb_community_post
+        SET comment_count = comment_count + 1
+        WHERE id = #{postId}
+    </update>
+
+    <!-- 减少评论数 -->
+    <update id="decrementCommentCount">
+        UPDATE tb_community_post
+        SET comment_count = comment_count - 1
+        WHERE id = #{postId} AND comment_count > 0
+    </update>
+
+</mapper>

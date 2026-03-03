@@ -75,6 +75,24 @@ public class Comment implements Serializable {
     private Integer type;
 
     /**
+     * 评论类型: 0-歌曲, 1-歌单, 2-AI-MV作品, 3-社区帖子
+     */
+    @TableField("comment_type")
+    private Integer commentType;
+
+    /**
+     * 目标ID(根据type不同指向不同表)
+     */
+    @TableField("target_id")
+    private Long targetId;
+
+    /**
+     * 父评论ID(用于回复)
+     */
+    @TableField("parent_id")
+    private Long parentId;
+
+    /**
      * 点赞数量
      */
     @TableField("like_count")
