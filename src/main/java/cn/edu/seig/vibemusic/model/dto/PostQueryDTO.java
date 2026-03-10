@@ -56,4 +56,9 @@ public class PostQueryDTO implements Serializable {
      * 每页数量
      */
     private Integer pageSize;
+
+    /**
+     * 帖子状态（管理端使用）: 1-已发布, 0-草稿, -1-已删除
+     */
+    private Integer status;
 }

@@ -26,6 +26,7 @@ public interface CommunityPostMapper extends BaseMapper<CommunityPost> {
                                   @Param("tag") String tag,
                                   @Param("userId") Long userId,
                                   @Param("isHot") Integer isHot,
+                                  @Param("status") Integer status,
                                   @Param("sortBy") String sortBy,
                                   @Param("currentUserId") Long currentUserId);
 
@@ -34,6 +35,11 @@ public interface CommunityPostMapper extends BaseMapper<CommunityPost> {
      */
     PostVO selectPostDetail(@Param("postId") Long postId, 
                            @Param("currentUserId") Long currentUserId);
+
+    /**
+     * 统计用户所有帖子的总获赞数
+     */
+    Long countUserTotalLikes(@Param("userId") Long userId);
 
     /**
      * 增加浏览次数
@@ -49,4 +55,14 @@ public interface CommunityPostMapper extends BaseMapper<CommunityPost> {
      * 减少评论数
      */
     void decrementCommentCount(@Param("postId") Long postId);
+
+    /**
+     * 管理端 - 分页查询所有帖子（包括草稿和已删除）
+     */
+    IPage<PostVO> selectAdminPostPage(Page<PostVO> page,
+                                      @Param("category") String category,
+                                      @Param("keyword") String keyword,
+                                      @Param("tag") String tag,
+                                      @Param("userId") Long userId,
+                                      @Param("status") Integer status);
 }

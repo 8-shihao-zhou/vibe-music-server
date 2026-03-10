@@ -10,6 +10,8 @@ import cn.edu.seig.vibemusic.result.Result;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.util.Map;
+
 /**
  * 社区帖子服务接口
  *
@@ -62,4 +64,76 @@ public interface ICommunityPostService extends IService<CommunityPost> {
      * 删除评论
      */
     Result deleteComment(Long commentId);
+
+    /**
+     * 点赞评论
+     */
+    Result likeComment(Long commentId);
+
+    /**
+     * 取消点赞评论
+     */
+    Result unlikeComment(Long commentId);
+
+    /**
+     * 获取用户统计信息
+     */
+    Result<Map<String, Object>> getUserStats(Long userId);
+
+    /**
+     * 收藏帖子
+     */
+    Result favoritePost(Long postId);
+
+    /**
+     * 取消收藏帖子
+     */
+    Result unfavoritePost(Long postId);
+
+    /**
+     * 获取用户收藏列表
+     */
+    Result<IPage<PostVO>> getUserFavorites(Integer pageNum, Integer pageSize);
+
+    // ==================== 管理端接口 ====================
+
+    /**
+     * 管理端 - 分页查询所有帖子（包括草稿和已删除）
+     */
+    Result<IPage<PostVO>> getAdminPostList(PostQueryDTO queryDTO);
+
+    /**
+     * 管理端 - 删除帖子
+     */
+    Result adminDeletePost(Long postId, Boolean permanent);
+
+    /**
+     * 管理端 - 批量删除帖子
+     */
+    Result adminBatchDeletePosts(java.util.List<Long> postIds, Boolean permanent);
+
+    /**
+     * 管理端 - 置顶/取消置顶帖子
+     */
+    Result adminToggleTop(Long postId, Integer isTop);
+
+    /**
+     * 管理端 - 设置/取消热门帖子
+     */
+    Result adminToggleHot(Long postId, Integer isHot);
+
+    /**
+     * 管理端 - 获取统计数据
+     */
+    Result<java.util.Map<String, Object>> getAdminStatistics();
+
+    /**
+     * 管理端 - 查询所有评论
+     */
+    Result<java.util.Map<String, Object>> getAdminComments(Integer pageNum, Integer pageSize, String keyword);
+
+    /**
+     * 管理端 - 删除评论
+     */
+    Result adminDeleteComment(Long commentId);
 }

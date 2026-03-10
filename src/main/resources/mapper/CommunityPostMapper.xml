@@ -17,16 +17,25 @@
             p.view_count AS viewCount,
             p.like_count AS likeCount,
             p.comment_count AS commentCount,
+            p.favorite_count AS favoriteCount,
             p.is_top AS isTop,
             p.is_hot AS isHot,
             p.status,
             p.create_time AS createTime,
             p.update_time AS updateTime,
-            CASE WHEN pl.id IS NOT NULL THEN 1 ELSE 0 END AS isLiked
+            CASE WHEN pl.id IS NOT NULL THEN 1 ELSE 0 END AS isLiked,
+            CASE WHEN pf.id IS NOT NULL THEN 1 ELSE 0 END AS isFavorited
         FROM tb_community_post p
         LEFT JOIN tb_user u ON p.user_id = u.id
         LEFT JOIN tb_post_like pl ON p.id = pl.post_id AND pl.user_id = #{currentUserId}
-        WHERE p.status = 1
+        LEFT JOIN tb_post_favorite pf ON p.id = pf.post_id AND pf.user_id = #{currentUserId}
+        WHERE 1=1
+        <if test="status != null">
+            AND p.status = #{status}
+        </if>
+        <if test="status == null">
+            AND p.status = 1
+        </if>
         <if test="category != null and category != ''">
             AND p.category = #{category}
         </if>
@@ -71,16 +80,26 @@
             p.view_count AS viewCount,
             p.like_count AS likeCount,
             p.comment_count AS commentCount,
+            p.favorite_count AS favoriteCount,
             p.is_top AS isTop,
             p.is_hot AS isHot,
             p.status,
             p.create_time AS createTime,
             p.update_time AS updateTime,
-            CASE WHEN pl.id IS NOT NULL THEN 1 ELSE 0 END AS isLiked
+            CASE WHEN pl.id IS NOT NULL THEN 1 ELSE 0 END AS isLiked,
+            CASE WHEN pf.id IS NOT NULL THEN 1 ELSE 0 END AS isFavorited
         FROM tb_community_post p
         LEFT JOIN tb_user u ON p.user_id = u.id
         LEFT JOIN tb_post_like pl ON p.id = pl.post_id AND pl.user_id = #{currentUserId}
+        LEFT JOIN tb_post_favorite pf ON p.id = pf.post_id AND pf.user_id = #{currentUserId}
         WHERE p.id = #{postId}
+    </select>
+
+    <!-- 统计用户所有帖子的总获赞数 -->
+    <select id="countUserTotalLikes" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(like_count), 0)
+        FROM tb_community_post
+        WHERE user_id = #{userId} AND status = 1
     </select>
 
     <!-- 增加浏览次数 -->
@@ -103,5 +122,52 @@
         SET comment_count = comment_count - 1
         WHERE id = #{postId} AND comment_count > 0
     </update>
+
+    <!-- 管理端 - 分页查询所有帖子（包括草稿和已删除） -->
+    <select id="selectAdminPostPage" resultType="cn.edu.seig.vibemusic.model.vo.PostVO">
+        SELECT
+            p.id,
+            p.user_id AS userId,
+            u.username,
+            u.user_avatar AS userAvatar,
+            p.title,
+            p.content,
+            p.category,
+            p.tags,
+            p.cover_url AS coverUrl,
+            p.view_count AS viewCount,
+            p.like_count AS likeCount,
+            p.comment_count AS commentCount,
+            p.favorite_count AS favoriteCount,
+            p.is_top AS isTop,
+            p.is_hot AS isHot,
+            p.status,
+            p.create_time AS createTime,
+            p.update_time AS updateTime,
+            0 AS isLiked,
+            0 AS isFavorited
+        FROM tb_community_post p
+        LEFT JOIN tb_user u ON p.user_id = u.id
+        <where>
+            <!-- 管理端可以查看所有状态的帖子 -->
+            <if test="status != null">
+                AND p.status = #{status}
+            </if>
+            <if test="category != null and category != ''">
+                AND p.category = #{category}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (p.title LIKE CONCAT('%', #{keyword}, '%')
+                OR p.content LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="tag != null and tag != ''">
+                AND p.tags LIKE CONCAT('%', #{tag}, '%')
+            </if>
+            <if test="userId != null">
+                AND p.user_id = #{userId}
+            </if>
+        </where>
+        ORDER BY p.is_top DESC, p.create_time DESC
+    </select>
 
 </mapper>

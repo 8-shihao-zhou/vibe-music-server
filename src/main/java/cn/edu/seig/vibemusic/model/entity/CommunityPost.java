@@ -89,6 +89,12 @@ public class CommunityPost implements Serializable {
     private Integer commentCount;
 
     /**
+     * 收藏数
+     */
+    @TableField("favorite_count")
+    private Integer favoriteCount;
+
+    /**
      * 是否置顶: 0-否, 1-是
      */
     @TableField("is_top")

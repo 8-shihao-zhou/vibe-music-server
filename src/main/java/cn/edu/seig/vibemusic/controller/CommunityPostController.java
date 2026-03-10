@@ -176,4 +176,182 @@ public class CommunityPostController {
     public Result deleteComment(@PathVariable("id") Long commentId) {
         return communityPostService.deleteComment(commentId);
     }
+
+    /**
+     * 点赞评论
+     *
+     * @param commentId 评论ID
+     * @return 结果
+     */
+    @PostMapping("/comment/like/{id}")
+    public Result likeComment(@PathVariable("id") Long commentId) {
+        return communityPostService.likeComment(commentId);
+    }
+
+    /**
+     * 取消点赞评论
+     *
+     * @param commentId 评论ID
+     * @return 结果
+     */
+    @DeleteMapping("/comment/like/{id}")
+    public Result unlikeComment(@PathVariable("id") Long commentId) {
+        return communityPostService.unlikeComment(commentId);
+    }
+
+    /**
+     * 获取用户统计信息
+     *
+     * @param userId 用户ID
+     * @return 用户统计信息
+     */
+    @GetMapping("/user/stats/{userId}")
+    public Result<Map<String, Object>> getUserStats(@PathVariable("userId") Long userId) {
+        return communityPostService.getUserStats(userId);
+    }
+
+    /**
+     * 收藏帖子
+     *
+     * @param postId 帖子ID
+     * @return 结果
+     */
+    @PostMapping("/favorite/{id}")
+    public Result favoritePost(@PathVariable("id") Long postId) {
+        return communityPostService.favoritePost(postId);
+    }
+
+    /**
+     * 取消收藏帖子
+     *
+     * @param postId 帖子ID
+     * @return 结果
+     */
+    @DeleteMapping("/favorite/{id}")
+    public Result unfavoritePost(@PathVariable("id") Long postId) {
+        return communityPostService.unfavoritePost(postId);
+    }
+
+    /**
+     * 获取用户收藏列表
+     *
+     * @param pageNum 页码
+     * @param pageSize 每页数量
+     * @return 收藏列表
+     */
+    @GetMapping("/favorites")
+    public Result<IPage<PostVO>> getUserFavorites(@RequestParam(defaultValue = "1") Integer pageNum,
+                                                   @RequestParam(defaultValue = "10") Integer pageSize) {
+        return communityPostService.getUserFavorites(pageNum, pageSize);
+    }
+
+    // ==================== 管理端接口 ====================
+
+    /**
+     * 管理端 - 分页查询所有帖子（包括草稿和已删除）
+     *
+     * @param queryDTO 查询条件
+     * @return 帖子列表
+     */
+    @PostMapping("/admin/list")
+    public Result<IPage<PostVO>> getAdminPostList(@RequestBody PostQueryDTO queryDTO) {
+        System.out.println(">>> [Admin] getAdminPostList() - 管理端查询帖子列表");
+        return communityPostService.getAdminPostList(queryDTO);
+    }
+
+    /**
+     * 管理端 - 删除帖子（物理删除或软删除）
+     *
+     * @param postId 帖子ID
+     * @param permanent 是否永久删除（true-物理删除，false-软删除）
+     * @return 结果
+     */
+    @DeleteMapping("/admin/delete/{id}")
+    public Result adminDeletePost(@PathVariable("id") Long postId,
+                                  @RequestParam(defaultValue = "false") Boolean permanent) {
+        System.out.println(">>> [Admin] adminDeletePost() - postId: " + postId + ", permanent: " + permanent);
+        return communityPostService.adminDeletePost(postId, permanent);
+    }
+
+    /**
+     * 管理端 - 批量删除帖子
+     *
+     * @param postIds 帖子ID列表
+     * @param permanent 是否永久删除
+     * @return 结果
+     */
+    @PostMapping("/admin/batch-delete")
+    public Result adminBatchDeletePosts(@RequestBody java.util.List<Long> postIds,
+                                       @RequestParam(defaultValue = "false") Boolean permanent) {
+        System.out.println(">>> [Admin] adminBatchDeletePosts() - count: " + postIds.size() + ", permanent: " + permanent);
+        return communityPostService.adminBatchDeletePosts(postIds, permanent);
+    }
+
+    /**
+     * 管理端 - 置顶/取消置顶帖子
+     *
+     * @param postId 帖子ID
+     * @param isTop 是否置顶（1-置顶，0-取消置顶）
+     * @return 结果
+     */
+    @PutMapping("/admin/top/{id}")
+    public Result adminToggleTop(@PathVariable("id") Long postId,
+                                 @RequestParam Integer isTop) {
+        System.out.println(">>> [Admin] adminToggleTop() - postId: " + postId + ", isTop: " + isTop);
+        return communityPostService.adminToggleTop(postId, isTop);
+    }
+
+    /**
+     * 管理端 - 设置/取消热门帖子
+     *
+     * @param postId 帖子ID
+     * @param isHot 是否热门（1-热门，0-取消热门）
+     * @return 结果
+     */
+    @PutMapping("/admin/hot/{id}")
+    public Result adminToggleHot(@PathVariable("id") Long postId,
+                                @RequestParam Integer isHot) {
+        System.out.println(">>> [Admin] adminToggleHot() - postId: " + postId + ", isHot: " + isHot);
+        return communityPostService.adminToggleHot(postId, isHot);
+    }
+
+    /**
+     * 管理端 - 获取社区统计数据
+     *
+     * @return 统计数据
+     */
+    @GetMapping("/admin/statistics")
+    public Result<Map<String, Object>> getAdminStatistics() {
+        System.out.println(">>> [Admin] getAdminStatistics() - 获取统计数据");
+        return communityPostService.getAdminStatistics();
+    }
+
+    /**
+     * 管理端 - 查询所有评论（分页）
+     *
+     * @param pageNum 页码
+     * @param pageSize 每页数量
+     * @param keyword 关键词（可选）
+     * @return 评论列表
+     */
+    @GetMapping("/admin/comments")
+    public Result<Map<String, Object>> getAdminComments(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) String keyword) {
+        System.out.println(">>> [Admin] getAdminComments() - pageNum: " + pageNum + ", pageSize: " + pageSize);
+        return communityPostService.getAdminComments(pageNum, pageSize, keyword);
+    }
+
+    /**
+     * 管理端 - 删除评论
+     *
+     * @param commentId 评论ID
+     * @return 结果
+     */
+    @DeleteMapping("/admin/comment/{id}")
+    public Result adminDeleteComment(@PathVariable("id") Long commentId) {
+        System.out.println(">>> [Admin] adminDeleteComment() - commentId: " + commentId);
+        return communityPostService.adminDeleteComment(commentId);
+    }
 }

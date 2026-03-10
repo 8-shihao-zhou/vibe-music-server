@@ -66,7 +66,8 @@ public class LoginInterceptor implements HandlerInterceptor {
                 PathConstant.SONG_LIST_PATH,
                 PathConstant.SONG_DETAIL_PATH,
                 "/community/post/list",      // 社区帖子列表
-                "/community/post/detail/**"  // 社区帖子详情
+                "/community/post/detail/**", // 社区帖子详情
+                "/search/**"                 // 搜索相关接口（历史、热门、建议）
         );
 
         // 检查路径是否匹配

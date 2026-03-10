@@ -81,6 +81,11 @@ public class PostDetailVO implements Serializable {
     private Integer commentCount;
 
     /**
+     * 收藏数
+     */
+    private Integer favoriteCount;
+
+    /**
      * 是否置顶
      */
     private Integer isTop;
@@ -99,6 +104,11 @@ public class PostDetailVO implements Serializable {
      * 当前用户是否已点赞
      */
     private Boolean isLiked;
+
+    /**
+     * 当前用户是否已收藏
+     */
+    private Boolean isFavorited;
 
     /**
      * 创建时间

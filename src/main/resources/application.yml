@@ -67,6 +67,7 @@ role-path-permissions:
     ROLE_ADMIN:
       - "/admin/"
       - "/notification/admin/"
+      - "/community/post/admin/" # 社区管理功能
     ROLE_USER:
       - "/user/"
       - "/playlist/"

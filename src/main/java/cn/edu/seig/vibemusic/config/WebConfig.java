@@ -30,6 +30,9 @@ public class WebConfig implements WebMvcConfigurer {
                         // 移除了 /community/post/list 和 /community/post/detail/** 的排除
                         // 让它们经过拦截器，以便获取登录用户信息
 
+                        // 搜索接口不拦截（支持未登录用户）
+                        "/search/**",
+
                         // 错误页面不拦截
                         "/error",
                         
