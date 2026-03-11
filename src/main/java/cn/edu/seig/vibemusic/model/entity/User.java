@@ -83,6 +83,18 @@ public class User implements Serializable {
     private String userAvatar;
 
     /**
+     * 关注数
+     */
+    @TableField("following_count")
+    private Integer followingCount;
+
+    /**
+     * 粉丝数
+     */
+    @TableField("follower_count")
+    private Integer followerCount;
+
+    /**
      * 用户简介
      * 用户简介格式：100 字以内
      */

@@ -22,12 +22,14 @@ import cn.edu.seig.vibemusic.model.vo.PostDetailVO;
 import cn.edu.seig.vibemusic.model.vo.PostVO;
 import cn.edu.seig.vibemusic.result.Result;
 import cn.edu.seig.vibemusic.service.ICommunityPostService;
+import cn.edu.seig.vibemusic.service.INotificationService;
 import cn.edu.seig.vibemusic.util.ThreadLocalUtil;
 import cn.edu.seig.vibemusic.util.TypeConversionUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,7 @@ import java.util.stream.Collectors;
  * @author sunpingli
  * @since 2026-02-08
  */
+@Slf4j
 @Service
 public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityPost> implements ICommunityPostService {
 
@@ -66,6 +69,12 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
 
     @Autowired
     private PostFavoriteMapper postFavoriteMapper;
+
+    @Autowired
+    private INotificationService notificationService;
+
+    @Autowired
+    private cn.edu.seig.vibemusic.service.TagService tagService;
 
     /**
      * 获取当前登录用户ID（必须登录）
@@ -98,6 +107,17 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         if (communityPostMapper.insert(post) == 0) {
             return Result.error(MessageConstant.ADD + MessageConstant.FAILED);
         }
+        
+        // 更新标签统计
+        if (post.getTags() != null && !post.getTags().trim().isEmpty()) {
+            try {
+                tagService.updatePostTags(post.getId(), post.getTags());
+            } catch (Exception e) {
+                log.error("更新标签统计失败", e);
+                // 不影响主流程
+            }
+        }
+        
         // 返回新创建的帖子ID
         return Result.success(post.getId());
     }
@@ -127,6 +147,17 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         if (communityPostMapper.updateById(post) == 0) {
             return Result.error(MessageConstant.UPDATE + MessageConstant.FAILED);
         }
+        
+        // 更新标签统计
+        if (post.getTags() != null) {
+            try {
+                tagService.updatePostTags(post.getId(), post.getTags());
+            } catch (Exception e) {
+                log.error("更新标签统计失败", e);
+                // 不影响主流程
+            }
+        }
+        
         return Result.success(MessageConstant.UPDATE + MessageConstant.SUCCESS);
     }
 
@@ -154,6 +185,14 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         post.setUpdateTime(LocalDateTime.now());
         if (communityPostMapper.updateById(post) == 0) {
             return Result.error(MessageConstant.DELETE + MessageConstant.FAILED);
+        }
+
+        // 删除标签关联
+        try {
+            tagService.deletePostTags(postId);
+        } catch (Exception e) {
+            log.error("删除标签关联失败", e);
+            // 不影响主流程
         }
 
         return Result.success(MessageConstant.DELETE + MessageConstant.SUCCESS);
@@ -323,6 +362,28 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         if (post != null) {
             post.setLikeCount(post.getLikeCount() + 1);
             communityPostMapper.updateById(post);
+            
+            // 发送通知给帖子作者（不给自己发通知）
+            if (!post.getUserId().equals(userId)) {
+                try {
+                    User currentUser = userMapper.selectById(userId);
+                    String username = currentUser != null ? currentUser.getUsername() : "用户";
+                    String title = "帖子获赞";
+                    String content = username + " 赞了你的帖子《" + post.getTitle() + "》";
+                    
+                    notificationService.createNotificationsEnhanced(
+                        List.of(post.getUserId()),
+                        title,
+                        content,
+                        "PERSONAL",
+                        "NORMAL",
+                        userId
+                    );
+                } catch (Exception e) {
+                    // 通知发送失败不影响主流程
+                    System.err.println("发送点赞通知失败: " + e.getMessage());
+                }
+            }
         }
 
         return Result.success("点赞成功");
@@ -406,6 +467,48 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         System.out.println(">>> [评论] 增加帖子评论数");
         communityPostMapper.incrementCommentCount(postId);
 
+        // 发送通知
+        try {
+            User currentUser = userMapper.selectById(userId);
+            String username = currentUser != null ? currentUser.getUsername() : "用户";
+            
+            if (parentId != null && parentId > 0) {
+                // 回复评论 - 通知被回复者
+                Comment parentComment = commentMapper.selectById(parentId);
+                if (parentComment != null && !parentComment.getUserId().equals(userId)) {
+                    String title = "收到新回复";
+                    String notificationContent = username + " 回复了你的评论：" + content;
+                    
+                    notificationService.createNotificationsEnhanced(
+                        List.of(parentComment.getUserId()),
+                        title,
+                        notificationContent,
+                        "PERSONAL",
+                        "NORMAL",
+                        userId
+                    );
+                }
+            } else {
+                // 评论帖子 - 通知帖子作者
+                if (!post.getUserId().equals(userId)) {
+                    String title = "收到新评论";
+                    String notificationContent = username + " 评论了你的帖子《" + post.getTitle() + "》：" + content;
+                    
+                    notificationService.createNotificationsEnhanced(
+                        List.of(post.getUserId()),
+                        title,
+                        notificationContent,
+                        "PERSONAL",
+                        "NORMAL",
+                        userId
+                    );
+                }
+            }
+        } catch (Exception e) {
+            // 通知发送失败不影响主流程
+            System.err.println("发送评论通知失败: " + e.getMessage());
+        }
+
         System.out.println(">>> [评论] 评论成功");
         return Result.success("评论成功");
     }
@@ -488,6 +591,28 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         // 增加评论点赞数
         comment.setLikeCount(comment.getLikeCount() + 1);
         commentMapper.updateById(comment);
+
+        // 发送通知给评论作者（不给自己发通知）
+        if (!comment.getUserId().equals(userId)) {
+            try {
+                User currentUser = userMapper.selectById(userId);
+                String username = currentUser != null ? currentUser.getUsername() : "用户";
+                String title = "评论获赞";
+                String content = username + " 赞了你的评论：" + comment.getContent();
+                
+                notificationService.createNotificationsEnhanced(
+                    List.of(comment.getUserId()),
+                    title,
+                    content,
+                    "PERSONAL",
+                    "NORMAL",
+                    userId
+                );
+            } catch (Exception e) {
+                // 通知发送失败不影响主流程
+                System.err.println("发送评论点赞通知失败: " + e.getMessage());
+            }
+        }
 
         return Result.success("点赞成功");
     }

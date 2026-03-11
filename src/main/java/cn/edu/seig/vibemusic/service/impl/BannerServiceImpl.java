@@ -190,13 +190,12 @@ public class BannerServiceImpl extends ServiceImpl<BannerMapper, Banner> impleme
      * @return 轮播图列表
      */
     @Override
-    @Cacheable(key = "'bannerList'")
+    // @Cacheable(key = "'bannerList'")  // 临时注释缓存，测试完成后可以恢复
     public Result<List<BannerVO>> getBannerList() {
-        // 获取最后九个有效的轮播图
+        // 获取所有有效的轮播图（移除数量限制）
         List<Banner> banners = bannerMapper.selectList(new QueryWrapper<Banner>()
                 .eq("status", BannerStatusEnum.ENABLE.getId())
-                .orderByDesc("id")
-                .last("limit 9"));
+                .orderByDesc("id"));
 
         // 转换为VO
         List<BannerVO> bannerVOList = banners.stream()

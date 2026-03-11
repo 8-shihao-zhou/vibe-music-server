@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.seig.vibemusic.mapper.ReportMapper">
+
+    <!-- 分页查询举报列表 -->
+    <select id="selectReportPage" resultType="cn.edu.seig.vibemusic.model.vo.ReportVO">
+        SELECT
+            r.id,
+            r.reporter_id AS reporterId,
+            reporter.username AS reporterName,
+            reporter.user_avatar AS reporterAvatar,
+            r.target_type AS targetType,
+            r.target_id AS targetId,
+            CASE
+                WHEN r.target_type = 1 THEN p.title
+                WHEN r.target_type = 2 THEN CAST(c.content AS CHAR)
+            END AS targetContent,
+            CASE
+                WHEN r.target_type = 1 THEN p.user_id
+                WHEN r.target_type = 2 THEN c.user_id
+            END AS targetAuthorId,
+            CASE
+                WHEN r.target_type = 1 THEN u1.username
+                WHEN r.target_type = 2 THEN u2.username
+            END AS targetAuthorName,
+            r.reason_type AS reasonType,
+            r.reason_detail AS reasonDetail,
+            r.status,
+            r.handler_id AS handlerId,
+            handler.username AS handlerName,
+            r.handle_result AS handleResult,
+            r.handle_time AS handleTime,
+            r.create_time AS createTime,
+            rs.report_count AS reportCount
+        FROM tb_report r
+        LEFT JOIN tb_user reporter ON r.reporter_id = reporter.id
+        LEFT JOIN tb_user handler ON r.handler_id = handler.id
+        LEFT JOIN tb_community_post p ON r.target_type = 1 AND r.target_id = p.id
+        LEFT JOIN tb_comment c ON r.target_type = 2 AND r.target_id = c.id
+        LEFT JOIN tb_user u1 ON r.target_type = 1 AND p.user_id = u1.id
+        LEFT JOIN tb_user u2 ON r.target_type = 2 AND c.user_id = u2.id
+        LEFT JOIN tb_report_stats rs ON r.target_type = rs.target_type AND r.target_id = rs.target_id
+        <where>
+            <if test="status != null">
+                AND r.status = #{status}
+            </if>
+            <if test="targetType != null">
+                AND r.target_type = #{targetType}
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
+</mapper>
