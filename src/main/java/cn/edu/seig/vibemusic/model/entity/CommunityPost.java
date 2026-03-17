@@ -71,6 +71,18 @@ public class CommunityPost implements Serializable {
     private String coverUrl;
 
     /**
+     * 图片数量
+     */
+    @TableField("image_count")
+    private Integer imageCount;
+
+    /**
+     * 是否包含MV: 0-否, 1-是
+     */
+    @TableField("has_mv")
+    private Integer hasMv;
+
+    /**
      * 浏览次数
      */
     @TableField("view_count")

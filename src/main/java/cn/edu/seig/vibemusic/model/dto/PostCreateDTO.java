@@ -4,12 +4,13 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * 创建帖子DTO
  *
- * @author sunpingli
- * @since 2026-02-08
+ * @author system
+ * @since 2026-03-16
  */
 @Data
 public class PostCreateDTO implements Serializable {
@@ -28,7 +29,7 @@ public class PostCreateDTO implements Serializable {
     private String content;
 
     /**
-     * 帖子分类: SHARE-创作分享, TECH-技术交流, QA-问答互助, CHAT-灌水闲聊
+     * 帖子分类
      */
     private String category;
 
@@ -41,6 +42,16 @@ public class PostCreateDTO implements Serializable {
      * 封面图URL
      */
     private String coverUrl;
+
+    /**
+     * 图片URL列表
+     */
+    private List<String> images;
+
+    /**
+     * MV ID（从用户作品库选择）
+     */
+    private Long mvId;
 
     /**
      * 状态: 0-草稿, 1-已发布

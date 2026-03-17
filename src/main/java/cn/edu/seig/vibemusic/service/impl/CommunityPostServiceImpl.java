@@ -32,6 +32,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,6 +77,18 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
     @Autowired
     private cn.edu.seig.vibemusic.service.TagService tagService;
 
+    @Autowired
+    private cn.edu.seig.vibemusic.service.IUserFollowService userFollowService;
+
+    @Autowired
+    private cn.edu.seig.vibemusic.mapper.PostMediaMapper postMediaMapper;
+
+    @Autowired
+    private cn.edu.seig.vibemusic.mapper.UserMvMapper userMvMapper;
+
+    @Value("${file.upload.url-prefix:http://localhost:9000}")
+    private String urlPrefix;
+
     /**
      * 获取当前登录用户ID（必须登录）
      */
@@ -83,6 +96,22 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         Map<String, Object> map = ThreadLocalUtil.get();
         Object userIdObj = map.get(JwtClaimsConstant.USER_ID);
         return TypeConversionUtil.toLong(userIdObj);
+    }
+
+    /**
+     * 获取当前登录用户ID（可以为null，用于未登录场景）
+     */
+    private Long getCurrentUserId() {
+        try {
+            Map<String, Object> map = ThreadLocalUtil.get();
+            if (map == null || map.isEmpty()) {
+                return null;
+            }
+            Object userIdObj = map.get(JwtClaimsConstant.USER_ID);
+            return TypeConversionUtil.toLong(userIdObj);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -99,13 +128,32 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         post.setViewCount(0);
         post.setLikeCount(0);
         post.setCommentCount(0);
+        post.setFavoriteCount(0);
         post.setIsTop(0);
         post.setIsHot(0);
         post.setCreateTime(LocalDateTime.now());
         post.setUpdateTime(LocalDateTime.now());
 
+        // 设置媒体统计字段
+        if (postCreateDTO.getImages() != null && !postCreateDTO.getImages().isEmpty()) {
+            post.setImageCount(postCreateDTO.getImages().size());
+        } else {
+            post.setImageCount(0);
+        }
+        post.setHasMv(postCreateDTO.getMvId() != null ? 1 : 0);
+
         if (communityPostMapper.insert(post) == 0) {
             return Result.error(MessageConstant.ADD + MessageConstant.FAILED);
+        }
+        
+        // 保存图片
+        if (postCreateDTO.getImages() != null && !postCreateDTO.getImages().isEmpty()) {
+            savePostImages(post.getId(), postCreateDTO.getImages());
+        }
+        
+        // 保存MV
+        if (postCreateDTO.getMvId() != null) {
+            savePostMv(post.getId(), postCreateDTO.getMvId(), userId);
         }
         
         // 更新标签统计
@@ -120,6 +168,58 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         
         // 返回新创建的帖子ID
         return Result.success(post.getId());
+    }
+
+    /**
+     * 保存帖子图片
+     */
+    private void savePostImages(Long postId, List<String> images) {
+        if (images == null || images.isEmpty()) {
+            return;
+        }
+
+        List<cn.edu.seig.vibemusic.model.entity.PostMedia> mediaList = new ArrayList<>();
+        for (int i = 0; i < images.size(); i++) {
+            cn.edu.seig.vibemusic.model.entity.PostMedia media = new cn.edu.seig.vibemusic.model.entity.PostMedia();
+            media.setPostId(postId);
+            media.setMediaType(1); // 1-图片
+            media.setMediaUrl(images.get(i));
+            media.setSortOrder(i);
+            media.setCreateTime(LocalDateTime.now());
+            mediaList.add(media);
+        }
+
+        if (!mediaList.isEmpty()) {
+            postMediaMapper.batchInsert(mediaList);
+        }
+    }
+
+    /**
+     * 保存帖子MV
+     */
+    private void savePostMv(Long postId, Long mvId, Long userId) {
+        // 验证MV所有权
+        Integer count = userMvMapper.checkMvOwnership(mvId, userId);
+        if (count == null || count == 0) {
+            throw new RuntimeException("MV不存在或无权访问");
+        }
+
+        // 获取MV信息
+        cn.edu.seig.vibemusic.model.entity.UserMv userMv = userMvMapper.selectById(mvId);
+        if (userMv == null) {
+            throw new RuntimeException("MV不存在");
+        }
+
+        // 保存MV媒体记录
+        cn.edu.seig.vibemusic.model.entity.PostMedia media = new cn.edu.seig.vibemusic.model.entity.PostMedia();
+        media.setPostId(postId);
+        media.setMediaType(2); // 2-MV
+        media.setMediaUrl(userMv.getMvUrl());
+        media.setMediaName(userMv.getMvName());
+        media.setMediaSize(userMv.getFileSize());
+        media.setSortOrder(0);
+        media.setCreateTime(LocalDateTime.now());
+        postMediaMapper.insert(media);
     }
 
     /**
@@ -253,11 +353,55 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         PostDetailVO detailVO = new PostDetailVO();
         BeanUtils.copyProperties(postVO, detailVO);
 
+        // 加载媒体信息
+        loadPostMedia(detailVO);
+
         // 查询评论列表
         List<PostCommentVO> comments = getPostComments(postId, currentUserId);
         detailVO.setComments(comments);
 
         return Result.success(detailVO);
+    }
+
+    /**
+     * 加载帖子媒体信息
+     */
+    private void loadPostMedia(PostDetailVO detailVO) {
+        Long postId = detailVO.getId();
+
+        // 加载图片列表
+        List<cn.edu.seig.vibemusic.model.entity.PostMedia> images = 
+            postMediaMapper.selectByPostIdAndType(postId, 1);
+        if (images != null && !images.isEmpty()) {
+            detailVO.setImages(images.stream()
+                .map(cn.edu.seig.vibemusic.model.entity.PostMedia::getMediaUrl)
+                .collect(Collectors.toList()));
+        }
+
+        // 加载MV信息
+        List<cn.edu.seig.vibemusic.model.entity.PostMedia> mvList = 
+            postMediaMapper.selectByPostIdAndType(postId, 2);
+        if (mvList != null && !mvList.isEmpty()) {
+            cn.edu.seig.vibemusic.model.entity.PostMedia mvMedia = mvList.get(0);
+            cn.edu.seig.vibemusic.model.vo.PostMvVO mvVO = new cn.edu.seig.vibemusic.model.vo.PostMvVO();
+            
+            // 处理MV URL - 如果是相对路径，转换为完整URL
+            String mvUrl = mvMedia.getMediaUrl();
+            if (mvUrl != null && !mvUrl.startsWith("http")) {
+                // 移除可能存在的 AI-MusicMV 前缀（数据库中可能存储了完整路径）
+                if (mvUrl.startsWith("/AI-MusicMV/")) {
+                    mvUrl = mvUrl.substring("/AI-MusicMV/".length());
+                } else if (mvUrl.startsWith("AI-MusicMV/")) {
+                    mvUrl = mvUrl.substring("AI-MusicMV/".length());
+                }
+                // 添加 /files 前缀（映射到 D:/music-video/AI-MusicMV/）
+                mvUrl = urlPrefix + "/files/" + mvUrl;
+            }
+            mvVO.setMvUrl(mvUrl);
+            mvVO.setMvName(mvMedia.getMediaName());
+            mvVO.setFileSize(mvMedia.getMediaSize());
+            detailVO.setMv(mvVO);
+        }
     }
 
 
@@ -695,6 +839,17 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
                      .eq(Comment::getCommentType, 3); // 社区帖子评论
         Long commentCount = commentMapper.selectCount(commentWrapper);
         stats.put("commentCount", commentCount);
+        
+        // 检查当前用户是否关注了该用户
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId != null && !currentUserId.equals(userId)) {
+            // 调用 UserFollowService 检查关注状态
+            boolean following = userFollowService.isFollowing(currentUserId, userId);
+            stats.put("isFollowing", following);
+            System.out.println(">>> [getUserStats] 当前用户: " + currentUserId + ", 是否关注用户 " + userId + ": " + following);
+        } else {
+            stats.put("isFollowing", false);
+        }
         
         return Result.success(stats);
     }

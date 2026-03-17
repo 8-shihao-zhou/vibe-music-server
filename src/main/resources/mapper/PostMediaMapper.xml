@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.seig.vibemusic.mapper.PostMediaMapper">
+
+    <!-- 批量插入媒体 -->
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO tb_post_media (post_id, media_type, media_url, media_name, media_size, sort_order, create_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.postId}, #{item.mediaType}, #{item.mediaUrl}, #{item.mediaName}, #{item.mediaSize}, #{item.sortOrder}, #{item.createTime})
+        </foreach>
+    </insert>
+
+</mapper>

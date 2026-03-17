@@ -111,6 +111,26 @@ public class PostDetailVO implements Serializable {
     private Boolean isFavorited;
 
     /**
+     * 图片数量
+     */
+    private Integer imageCount;
+
+    /**
+     * 是否包含MV
+     */
+    private Integer hasMv;
+
+    /**
+     * 图片列表
+     */
+    private List<String> images;
+
+    /**
+     * MV信息
+     */
+    private PostMvVO mv;
+
+    /**
      * 创建时间
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

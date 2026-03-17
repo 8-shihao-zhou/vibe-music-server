@@ -101,3 +101,8 @@ ai:
   # 2. 生成的视频存放路径 (请确保这个文件夹存在，或者代码里自动创建)
   # 注意：Windows下路径分隔符用反斜杠 /，最后要带 /
   storage-path: D:/music-video/AI-MusicMV/
+
+file:
+  upload:
+    path: D:/music-video/vibe-music-server/uploads
+    url-prefix: http://localhost:8080
