@@ -95,6 +95,11 @@ public class PostVO implements Serializable {
     private Integer isHot;
 
     /**
+     * 是否高亮（通过积分商城购买）
+     */
+    private Boolean isHighlight;
+
+    /**
      * 状态
      */
     private Integer status;

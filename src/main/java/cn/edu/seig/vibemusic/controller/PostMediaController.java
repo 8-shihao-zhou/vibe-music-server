@@ -135,4 +135,18 @@ public class PostMediaController {
     public Result syncMvFiles(@RequestParam(required = false) Long userId) {
         return userMvService.syncMvFiles(userId);
     }
+
+    /**
+     * 更新MV名称
+     *
+     * @param mvId   MV ID
+     * @param mvName 新名称
+     * @return 更新结果
+     */
+    @PutMapping("/mv/{id}/name")
+    public Result updateMvName(
+            @PathVariable("id") Long mvId,
+            @RequestParam String mvName) {
+        return userMvService.updateMvName(mvId, mvName);
+    }
 }

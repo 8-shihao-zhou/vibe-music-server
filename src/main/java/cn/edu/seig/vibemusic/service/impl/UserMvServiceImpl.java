@@ -18,8 +18,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -158,89 +160,127 @@ public class UserMvServiceImpl extends ServiceImpl<UserMvMapper, UserMv> impleme
                 return Result.error("用户MV目录不存在");
             }
 
-            // 2. 获取所有.mp4文件
+            // 2. 获取所有.mp4文件（不限制文件名前缀）
             List<File> mvFiles = Files.list(dirPath)
-                    .filter(p -> p.toString().endsWith(".mp4") && p.getFileName().toString().startsWith("mv_"))
+                    .filter(p -> p.toString().endsWith(".mp4"))
                     .map(Path::toFile)
                     .collect(Collectors.toList());
 
             System.out.println(">>> [MV同步] 找到MV文件数量: " + mvFiles.size());
 
-            if (mvFiles.isEmpty()) {
-                return Result.success("没有找到新的MV文件");
-            }
-
-            // 3. 查询数据库已有的MV
+            // 3. 删除该用户的所有MV记录（完全重新同步）
             List<UserMv> existingMvs = userMvMapper.selectByUserId(userId, null);
-            Set<String> existingUrls = new HashSet<>();
-            if (existingMvs != null) {
-                existingUrls = existingMvs.stream()
-                        .map(UserMv::getMvUrl)
-                        .collect(Collectors.toSet());
-            }
-
-            System.out.println(">>> [MV同步] 数据库已有MV数量: " + existingUrls.size());
-
-            // 4. 找出未导入的MV
-            List<UserMv> newMvs = new ArrayList<>();
-            int index = existingMvs != null ? existingMvs.size() + 1 : 1;
-            
-            for (File mvFile : mvFiles) {
-                String fileName = mvFile.getName();
-                String mvUrl = "user_" + userId + "/" + fileName;
-
-                if (!existingUrls.contains(mvUrl) && !existingUrls.contains("/" + mvUrl)) {
-                    UserMv mv = new UserMv();
-                    mv.setUserId(userId);
-                    
-                    // 生成MV名称
-                    String mvName = "测试MV作品" + index;
-                    mv.setMvName(mvName);
-                    
-                    // 设置MV URL（相对路径）
-                    mv.setMvUrl(mvUrl);
-                    
-                    // 设置封面URL（如果存在）
-                    String coverFileName = fileName.replace("mv_", "cover_").replace(".mp4", ".jpg");
-                    File coverFile = new File(mvFile.getParent(), coverFileName);
-                    if (coverFile.exists()) {
-                        mv.setCoverUrl("user_" + userId + "/" + coverFileName);
-                    }
-                    
-                    // 设置文件大小
-                    mv.setFileSize(mvFile.length());
-                    
-                    // 设置默认时长（3分钟）
-                    mv.setDuration(180);
-                    
-                    // 设置状态为已完成
-                    mv.setStatus(1);
-                    
-                    // 设置创建时间
-                    mv.setCreateTime(LocalDateTime.now());
-                    mv.setUpdateTime(LocalDateTime.now());
-                    
-                    newMvs.add(mv);
-                    index++;
+            int deletedCount = 0;
+            if (existingMvs != null && !existingMvs.isEmpty()) {
+                for (UserMv mv : existingMvs) {
+                    userMvMapper.deleteById(mv.getId());
+                    deletedCount++;
                 }
             }
+            System.out.println(">>> [MV同步] 删除旧记录数量: " + deletedCount);
 
-            System.out.println(">>> [MV同步] 需要导入的新MV数量: " + newMvs.size());
+            // 4. 重新导入所有MV文件
+            List<UserMv> newMvs = new ArrayList<>();
+            for (File mvFile : mvFiles) {
+                String fileName = mvFile.getName();
+                
+                UserMv mv = new UserMv();
+                mv.setUserId(userId);
+                
+                // 使用文件名作为MV名称（移除.mp4扩展名）
+                String mvName = fileName;
+                if (mvName.toLowerCase().endsWith(".mp4")) {
+                    mvName = mvName.substring(0, mvName.length() - 4);
+                }
+                mv.setMvName(mvName);
+                
+                // 设置MV URL（相对路径）
+                mv.setMvUrl("user_" + userId + "/" + fileName);
+                
+                // 设置封面URL（如果存在）
+                String coverFileName = fileName.replace("mv_", "cover_").replace(".mp4", ".jpg");
+                File coverFile = new File(mvFile.getParent(), coverFileName);
+                if (coverFile.exists()) {
+                    mv.setCoverUrl("user_" + userId + "/" + coverFileName);
+                }
+                
+                // 设置文件大小
+                mv.setFileSize(mvFile.length());
+                
+                // 设置默认时长（3分钟）
+                mv.setDuration(180);
+                
+                // 设置状态为已完成
+                mv.setStatus(1);
+                
+                // 设置创建时间
+                mv.setCreateTime(LocalDateTime.now());
+                mv.setUpdateTime(LocalDateTime.now());
+                
+                newMvs.add(mv);
+            }
 
             // 5. 批量插入
+            int addedCount = 0;
             if (!newMvs.isEmpty()) {
                 for (UserMv mv : newMvs) {
                     userMvMapper.insert(mv);
+                    addedCount++;
                 }
-                return Result.success("同步完成，新增 " + newMvs.size() + " 个MV");
-            } else {
-                return Result.success("所有MV已同步，无需更新");
             }
+
+            System.out.println(">>> [MV同步] 新增记录数量: " + addedCount);
+
+            // 6. 返回同步结果
+            String message = String.format("同步完成：共 %d 个MV（已清空旧数据并重新导入）", mvFiles.size());
+            return Result.success(message);
 
         } catch (Exception e) {
             System.err.println(">>> [MV同步] 同步失败: " + e.getMessage());
             e.printStackTrace();
             return Result.error("同步失败：" + e.getMessage());
+        }
+    }
+
+    @Override
+    public Result updateMvName(Long mvId, String mvName) {
+        // 参数校验
+        if (mvId == null) {
+            return Result.error("MV ID不能为空");
+        }
+        if (mvName == null || mvName.trim().isEmpty()) {
+            return Result.error("MV名称不能为空");
+        }
+        if (mvName.length() > 100) {
+            return Result.error("MV名称不能超过100个字符");
+        }
+
+        // 获取当前用户ID
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            return Result.error("请先登录");
+        }
+
+        // 查询MV是否存在
+        UserMv mv = userMvMapper.selectById(mvId);
+        if (mv == null) {
+            return Result.error("MV不存在");
+        }
+
+        // 检查权限：只能修改自己的MV
+        if (!mv.getUserId().equals(currentUserId)) {
+            return Result.error("无权修改此MV");
+        }
+
+        // 更新MV名称
+        mv.setMvName(mvName.trim());
+        mv.setUpdateTime(LocalDateTime.now());
+        
+        int result = userMvMapper.updateById(mv);
+        if (result > 0) {
+            return Result.success("更新成功");
+        } else {
+            return Result.error("更新失败");
         }
     }
 }

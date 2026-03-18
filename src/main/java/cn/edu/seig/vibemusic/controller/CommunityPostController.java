@@ -1,6 +1,7 @@
 package cn.edu.seig.vibemusic.controller;
 
 import cn.edu.seig.vibemusic.constant.JwtClaimsConstant;
+import cn.edu.seig.vibemusic.enums.PointsActionType;
 import cn.edu.seig.vibemusic.model.dto.PostCreateDTO;
 import cn.edu.seig.vibemusic.model.dto.PostQueryDTO;
 import cn.edu.seig.vibemusic.model.dto.PostUpdateDTO;
@@ -8,6 +9,7 @@ import cn.edu.seig.vibemusic.model.vo.PostDetailVO;
 import cn.edu.seig.vibemusic.model.vo.PostVO;
 import cn.edu.seig.vibemusic.result.Result;
 import cn.edu.seig.vibemusic.service.ICommunityPostService;
+import cn.edu.seig.vibemusic.service.IPointsService;
 import cn.edu.seig.vibemusic.util.ThreadLocalUtil;
 import cn.edu.seig.vibemusic.util.TypeConversionUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -31,6 +33,9 @@ public class CommunityPostController {
     private ICommunityPostService communityPostService;
     
     @Autowired
+    private IPointsService pointsService;
+    
+    @Autowired
     private HttpServletRequest request; // 注入 Request 对象
 
     /**
@@ -41,7 +46,15 @@ public class CommunityPostController {
      */
     @PostMapping("/create")
     public Result createPost(@RequestBody PostCreateDTO postCreateDTO) {
-        return communityPostService.createPost(postCreateDTO);
+        Result result = communityPostService.createPost(postCreateDTO);
+        // 发帖成功后增加积分
+        if (result.getCode() == 0) {
+            Long userId = getCurrentUserId();
+            if (userId != null) {
+                pointsService.addPoints(userId, PointsActionType.POST_CREATE.getCode(), null);
+            }
+        }
+        return result;
     }
 
     /**
@@ -163,7 +176,15 @@ public class CommunityPostController {
     public Result commentPost(@PathVariable("id") Long postId,
                               @RequestParam String content,
                               @RequestParam(required = false) Long parentId) {
-        return communityPostService.commentPost(postId, content, parentId);
+        Result result = communityPostService.commentPost(postId, content, parentId);
+        // 评论成功后增加积分
+        if (result.getCode() == 0) {
+            Long userId = getCurrentUserId();
+            if (userId != null) {
+                pointsService.addPoints(userId, PointsActionType.COMMENT_CREATE.getCode(), postId);
+            }
+        }
+        return result;
     }
 
     /**

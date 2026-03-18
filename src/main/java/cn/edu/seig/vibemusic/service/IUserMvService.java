@@ -47,4 +47,13 @@ public interface IUserMvService extends IService<UserMv> {
      * @return 同步结果
      */
     Result syncMvFiles(Long userId);
+
+    /**
+     * 更新MV名称
+     *
+     * @param mvId   MV ID
+     * @param mvName 新名称
+     * @return 更新结果
+     */
+    Result updateMvName(Long mvId, String mvName);
 }

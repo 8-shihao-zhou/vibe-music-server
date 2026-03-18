@@ -75,6 +75,9 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
     private INotificationService notificationService;
 
     @Autowired
+    private cn.edu.seig.vibemusic.service.IPointsService pointsService;
+
+    @Autowired
     private cn.edu.seig.vibemusic.service.TagService tagService;
 
     @Autowired
@@ -385,17 +388,32 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
             cn.edu.seig.vibemusic.model.entity.PostMedia mvMedia = mvList.get(0);
             cn.edu.seig.vibemusic.model.vo.PostMvVO mvVO = new cn.edu.seig.vibemusic.model.vo.PostMvVO();
             
-            // 处理MV URL - 如果是相对路径，转换为完整URL
+            // 通过URL查找MV ID
             String mvUrl = mvMedia.getMediaUrl();
-            if (mvUrl != null && !mvUrl.startsWith("http")) {
-                // 移除可能存在的 AI-MusicMV 前缀（数据库中可能存储了完整路径）
-                if (mvUrl.startsWith("/AI-MusicMV/")) {
-                    mvUrl = mvUrl.substring("/AI-MusicMV/".length());
-                } else if (mvUrl.startsWith("AI-MusicMV/")) {
-                    mvUrl = mvUrl.substring("AI-MusicMV/".length());
+            if (mvUrl != null) {
+                // 查询tb_user_mv表获取MV ID
+                cn.edu.seig.vibemusic.model.entity.UserMv userMv = userMvMapper.selectOne(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<cn.edu.seig.vibemusic.model.entity.UserMv>()
+                        .eq(cn.edu.seig.vibemusic.model.entity.UserMv::getMvUrl, mvUrl)
+                        .or()
+                        .eq(cn.edu.seig.vibemusic.model.entity.UserMv::getMvUrl, "/" + mvUrl)
+                );
+                
+                if (userMv != null) {
+                    mvVO.setMvId(userMv.getId());
                 }
-                // 添加 /files 前缀（映射到 D:/music-video/AI-MusicMV/）
-                mvUrl = urlPrefix + "/files/" + mvUrl;
+                
+                // 处理MV URL - 如果是相对路径，转换为完整URL
+                if (!mvUrl.startsWith("http")) {
+                    // 移除可能存在的 AI-MusicMV 前缀（数据库中可能存储了完整路径）
+                    if (mvUrl.startsWith("/AI-MusicMV/")) {
+                        mvUrl = mvUrl.substring("/AI-MusicMV/".length());
+                    } else if (mvUrl.startsWith("AI-MusicMV/")) {
+                        mvUrl = mvUrl.substring("AI-MusicMV/".length());
+                    }
+                    // 添加 /files 前缀（映射到 D:/music-video/AI-MusicMV/）
+                    mvUrl = urlPrefix + "/files/" + mvUrl;
+                }
             }
             mvVO.setMvUrl(mvUrl);
             mvVO.setMvName(mvMedia.getMediaName());
@@ -506,6 +524,15 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         if (post != null) {
             post.setLikeCount(post.getLikeCount() + 1);
             communityPostMapper.updateById(post);
+            
+            // 给帖子作者增加积分（不给自己加分）
+            if (!post.getUserId().equals(userId)) {
+                try {
+                    pointsService.addPoints(post.getUserId(), "POST_LIKED", postId);
+                } catch (Exception e) {
+                    log.error("增加点赞积分失败", e);
+                }
+            }
             
             // 发送通知给帖子作者（不给自己发通知）
             if (!post.getUserId().equals(userId)) {
@@ -735,6 +762,15 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         // 增加评论点赞数
         comment.setLikeCount(comment.getLikeCount() + 1);
         commentMapper.updateById(comment);
+
+        // 给评论作者增加积分（不给自己加分）
+        if (!comment.getUserId().equals(userId)) {
+            try {
+                pointsService.addPoints(comment.getUserId(), "COMMENT_LIKED", commentId);
+            } catch (Exception e) {
+                log.error("增加评论点赞积分失败", e);
+            }
+        }
 
         // 发送通知给评论作者（不给自己发通知）
         if (!comment.getUserId().equals(userId)) {

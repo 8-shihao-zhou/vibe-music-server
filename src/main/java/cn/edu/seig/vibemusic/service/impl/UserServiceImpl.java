@@ -14,6 +14,7 @@ import cn.edu.seig.vibemusic.result.PageResult;
 import cn.edu.seig.vibemusic.result.Result;
 import cn.edu.seig.vibemusic.service.EmailService;
 import cn.edu.seig.vibemusic.service.IUserService;
+import cn.edu.seig.vibemusic.service.IPointsService;
 import cn.edu.seig.vibemusic.service.MinioService;
 import cn.edu.seig.vibemusic.util.JwtUtil;
 import cn.edu.seig.vibemusic.util.ThreadLocalUtil;
@@ -57,6 +58,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     private EmailService emailService;
     @Autowired
     private MinioService minioService;
+    @Autowired
+    private IPointsService pointsService;
 
     /**
      * 发送验证码
@@ -150,6 +153,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
             // 将token存入redis
             stringRedisTemplate.opsForValue().set(token, token, 6, TimeUnit.HOURS);
+
+            // 发放每日登录积分
+            try {
+                pointsService.addPoints(user.getUserId(), "DAILY_LOGIN", null);
+            } catch (Exception e) {
+                // 积分发放失败不影响登录流程
+                System.err.println("发放每日登录积分失败: " + e.getMessage());
+            }
 
             return Result.success(MessageConstant.LOGIN + MessageConstant.SUCCESS, token);
         }

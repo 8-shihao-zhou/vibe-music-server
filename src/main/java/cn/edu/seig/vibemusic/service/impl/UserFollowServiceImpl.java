@@ -42,6 +42,9 @@ public class UserFollowServiceImpl extends ServiceImpl<UserFollowMapper, UserFol
     @Autowired
     private INotificationService notificationService;
 
+    @Autowired
+    private cn.edu.seig.vibemusic.service.IPointsService pointsService;
+
     /**
      * 获取当前登录用户ID
      */
@@ -98,6 +101,13 @@ public class UserFollowServiceImpl extends ServiceImpl<UserFollowMapper, UserFol
         Integer followerCount = followingUser.getFollowerCount();
         followingUser.setFollowerCount(followerCount != null ? followerCount + 1 : 1);
         userMapper.updateById(followingUser);
+
+        // 给被关注者增加积分
+        try {
+            pointsService.addPoints(followingId, "FOLLOWED", followerId);
+        } catch (Exception e) {
+            System.err.println("增加关注积分失败: " + e.getMessage());
+        }
 
         // 发送通知
         try {

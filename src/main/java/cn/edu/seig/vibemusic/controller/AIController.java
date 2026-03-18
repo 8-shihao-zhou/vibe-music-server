@@ -25,6 +25,9 @@ public class AIController {
     @Autowired
     private AIService aiService;
 
+    @Autowired
+    private cn.edu.seig.vibemusic.service.IPointsService pointsService;
+
     // 👇👇👇 【修复点】在这里注入存储路径 👇👇👇
     @Value("${ai.storage-path}")
     private String storagePath;
@@ -47,11 +50,21 @@ public class AIController {
             // 2. 调用 Service 核心逻辑，传递歌曲名
             String videoUrl = aiService.generateVideo(file, songName);
 
-            // 3. 返回成功结果 (code=0, data=视频地址)
+            // 3. AI创作成功后增加积分
+            Long userId = cn.edu.seig.vibemusic.utils.UserContext.getUserId();
+            if (userId != null) {
+                try {
+                    pointsService.addPoints(userId, "MV_CREATE", null);
+                } catch (Exception e) {
+                    System.err.println("增加AI创作积分失败: " + e.getMessage());
+                }
+            }
+
+            // 4. 返回成功结果 (code=0, data=视频地址)
             return Result.success(videoUrl);
 
         } catch (Exception e) {
-            // 4. 返回失败结果 (code=1, msg=错误信息)
+            // 5. 返回失败结果 (code=1, msg=错误信息)
             return Result.error(e.getMessage());
         }
     }
@@ -110,7 +123,7 @@ public class AIController {
             }
         }
 
-        // 1. 过滤出 .mp4 文件
+        // 1. 过滤出 .mp4 文件（不限制文件名前缀）
         // 2. 按最后修改时间倒序排列 (最新的在前面)
         // 3. 封装成前端需要的格式
         final Map<String, String> finalMappings = songMappings;
@@ -136,5 +149,88 @@ public class AIController {
 
         System.out.println(">>> [DEBUG] 返回MV数量: " + list.size());
         return Result.success(list);
+    }
+
+    /**
+     * 重命名MV文件
+     * 地址: PUT http://localhost:8080/api/ai/rename
+     */
+    @PutMapping("/rename")
+    public Result<String> renameMvFile(
+            @RequestParam("oldFileName") String oldFileName,
+            @RequestParam("newFileName") String newFileName) {
+        
+        // 获取当前登录用户ID
+        Long userId = cn.edu.seig.vibemusic.utils.UserContext.getUserId();
+        if (userId == null) {
+            return Result.error("用户未登录");
+        }
+
+        // 参数校验
+        if (oldFileName == null || oldFileName.trim().isEmpty()) {
+            return Result.error("原文件名不能为空");
+        }
+        if (newFileName == null || newFileName.trim().isEmpty()) {
+            return Result.error("新文件名不能为空");
+        }
+
+        // 确保新文件名不包含.mp4扩展名（前端已处理，这里再次确认）
+        newFileName = newFileName.trim();
+        if (newFileName.toLowerCase().endsWith(".mp4")) {
+            newFileName = newFileName.substring(0, newFileName.length() - 4);
+        }
+
+        // 验证文件名合法性（不能包含特殊字符）
+        if (newFileName.matches(".*[/\\\\:*?\"<>|].*")) {
+            return Result.error("文件名不能包含特殊字符: / \\ : * ? \" < > |");
+        }
+
+        try {
+            // 用户专属目录
+            String userStoragePath = storagePath + "user_" + userId + File.separator;
+            File dir = new File(userStoragePath);
+            
+            if (!dir.exists()) {
+                return Result.error("用户目录不存在");
+            }
+
+            // 旧文件
+            File oldFile = new File(dir, oldFileName);
+            if (!oldFile.exists()) {
+                return Result.error("原文件不存在");
+            }
+
+            // 新文件名（保留.mp4扩展名）
+            String newFileNameWithExt = newFileName + ".mp4";
+            File newFile = new File(dir, newFileNameWithExt);
+            
+            // 检查新文件名是否已存在
+            if (newFile.exists() && !oldFile.equals(newFile)) {
+                return Result.error("文件名已存在");
+            }
+
+            // 重命名文件
+            boolean success = oldFile.renameTo(newFile);
+            if (!success) {
+                return Result.error("重命名失败");
+            }
+
+            // 如果有对应的封面文件，也一起重命名
+            String oldCoverName = oldFileName.replace("mv_", "cover_").replace(".mp4", ".jpg");
+            File oldCoverFile = new File(dir, oldCoverName);
+            if (oldCoverFile.exists()) {
+                String newCoverName = newFileNameWithExt.replace(".mp4", ".jpg");
+                File newCoverFile = new File(dir, newCoverName);
+                oldCoverFile.renameTo(newCoverFile);
+            }
+
+            System.out.println(">>> [重命名] 成功: " + oldFileName + " -> " + newFileNameWithExt);
+            return Result.success("重命名成功");
+
+        } catch (Exception e) {
+            System.err.println(">>> [重命名] 失败: " + e.getMessage());
+            e.printStackTrace();
+            return Result.error("重命名失败：" + e.getMessage());
+        }
     }
 }

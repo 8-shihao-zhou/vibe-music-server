@@ -80,6 +80,8 @@ role-path-permissions:
       - "/feedback/"
       - "/notification/user/"
       - "/api/ai/" # AI 音乐视频生成功能
+      - "/api/points/" # 积分系统功能
+      - "/api/mall/" # 积分商城功能
       - "/community/" # 社区功能
       - "/tag/" # 标签功能
       - "/report/" # 举报功能

@@ -36,6 +36,14 @@ public class UserContext {
     }
 
     /**
+     * 获取当前登录用户的ID（别名方法）
+     * @return 用户ID，如果未登录则返回null
+     */
+    public static Long getCurrentUserId() {
+        return getUserId();
+    }
+
+    /**
      * 获取当前登录用户的用户名
      * @return 用户名，如果未登录则返回null
      */
