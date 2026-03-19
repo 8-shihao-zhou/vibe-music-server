@@ -29,21 +29,46 @@
                 WHEN up_highlight.id IS NOT NULL AND (up_highlight.expire_time IS NULL OR up_highlight.expire_time > NOW()) THEN true 
                 ELSE false 
             END AS isHighlight,
+            upr_color.privilege_value AS nicknameColor,
+            upr_frame.privilege_value AS avatarFrame,
             p.status,
             p.create_time AS createTime,
             p.update_time AS updateTime,
             CASE WHEN pl.id IS NOT NULL THEN 1 ELSE 0 END AS isLiked,
-            CASE WHEN pf.id IS NOT NULL THEN 1 ELSE 0 END AS isFavorited
+            CASE WHEN pf.id IS NOT NULL THEN 1 ELSE 0 END AS isFavorited,
+            CASE 
+                WHEN upoints.total_points >= 5000 THEN '殿堂级'
+                WHEN upoints.total_points >= 1000 THEN '社区大V'
+                WHEN upoints.total_points >= 500 THEN '音乐达人'
+                WHEN upoints.total_points >= 100 THEN '活跃用户'
+                ELSE '新手'
+            END AS levelName,
+            CASE 
+                WHEN upoints.total_points >= 5000 THEN 5
+                WHEN upoints.total_points >= 1000 THEN 4
+                WHEN upoints.total_points >= 500 THEN 3
+                WHEN upoints.total_points >= 100 THEN 2
+                ELSE 1
+            END AS level
         FROM tb_community_post p
         LEFT JOIN tb_user u ON p.user_id = u.id
+        LEFT JOIN tb_user_points upoints ON p.user_id = upoints.user_id
         LEFT JOIN tb_post_like pl ON p.id = pl.post_id AND pl.user_id = #{currentUserId}
         LEFT JOIN tb_post_favorite pf ON p.id = pf.post_id AND pf.user_id = #{currentUserId}
         LEFT JOIN tb_user_purchase up_top ON p.id = up_top.target_id 
-            AND up_top.item_code = 'POST_TOP_3D' 
+            AND up_top.item_code LIKE 'POST_TOP%' 
             AND up_top.status = 1
         LEFT JOIN tb_user_purchase up_highlight ON p.id = up_highlight.target_id 
-            AND up_highlight.item_code = 'POST_HIGHLIGHT_7D' 
+            AND up_highlight.item_code LIKE 'POST_HIGHLIGHT%' 
             AND up_highlight.status = 1
+        LEFT JOIN tb_user_privilege upr_color ON p.user_id = upr_color.user_id
+            AND upr_color.privilege_type = 'NICKNAME_COLOR'
+            AND upr_color.is_active = 1
+            AND (upr_color.expire_time IS NULL OR upr_color.expire_time > NOW())
+        LEFT JOIN tb_user_privilege upr_frame ON p.user_id = upr_frame.user_id
+            AND upr_frame.privilege_type = 'AVATAR_FRAME'
+            AND upr_frame.is_active = 1
+            AND (upr_frame.expire_time IS NULL OR upr_frame.expire_time > NOW())
         WHERE 1=1
         <if test="status != null">
             AND p.status = #{status}
@@ -79,6 +104,7 @@
                     WHEN up_top.id IS NOT NULL AND (up_top.expire_time IS NULL OR up_top.expire_time > NOW()) THEN 1 
                     ELSE p.is_top 
                 END DESC, 
+                up_top.purchase_time DESC,
                 p.create_time DESC
             </otherwise>
         </choose>
@@ -111,21 +137,46 @@
                 WHEN up_highlight.id IS NOT NULL AND (up_highlight.expire_time IS NULL OR up_highlight.expire_time > NOW()) THEN true 
                 ELSE false 
             END AS isHighlight,
+            upr_color.privilege_value AS nicknameColor,
+            upr_frame.privilege_value AS avatarFrame,
             p.status,
             p.create_time AS createTime,
             p.update_time AS updateTime,
             CASE WHEN pl.id IS NOT NULL THEN 1 ELSE 0 END AS isLiked,
-            CASE WHEN pf.id IS NOT NULL THEN 1 ELSE 0 END AS isFavorited
+            CASE WHEN pf.id IS NOT NULL THEN 1 ELSE 0 END AS isFavorited,
+            CASE 
+                WHEN upoints.total_points >= 5000 THEN '殿堂级'
+                WHEN upoints.total_points >= 1000 THEN '社区大V'
+                WHEN upoints.total_points >= 500 THEN '音乐达人'
+                WHEN upoints.total_points >= 100 THEN '活跃用户'
+                ELSE '新手'
+            END AS levelName,
+            CASE 
+                WHEN upoints.total_points >= 5000 THEN 5
+                WHEN upoints.total_points >= 1000 THEN 4
+                WHEN upoints.total_points >= 500 THEN 3
+                WHEN upoints.total_points >= 100 THEN 2
+                ELSE 1
+            END AS level
         FROM tb_community_post p
         LEFT JOIN tb_user u ON p.user_id = u.id
+        LEFT JOIN tb_user_points upoints ON p.user_id = upoints.user_id
         LEFT JOIN tb_post_like pl ON p.id = pl.post_id AND pl.user_id = #{currentUserId}
         LEFT JOIN tb_post_favorite pf ON p.id = pf.post_id AND pf.user_id = #{currentUserId}
         LEFT JOIN tb_user_purchase up_top ON p.id = up_top.target_id 
-            AND up_top.item_code = 'POST_TOP_3D' 
+            AND up_top.item_code LIKE 'POST_TOP%' 
             AND up_top.status = 1
         LEFT JOIN tb_user_purchase up_highlight ON p.id = up_highlight.target_id 
-            AND up_highlight.item_code = 'POST_HIGHLIGHT_7D' 
+            AND up_highlight.item_code LIKE 'POST_HIGHLIGHT%' 
             AND up_highlight.status = 1
+        LEFT JOIN tb_user_privilege upr_color ON p.user_id = upr_color.user_id
+            AND upr_color.privilege_type = 'NICKNAME_COLOR'
+            AND upr_color.is_active = 1
+            AND (upr_color.expire_time IS NULL OR upr_color.expire_time > NOW())
+        LEFT JOIN tb_user_privilege upr_frame ON p.user_id = upr_frame.user_id
+            AND upr_frame.privilege_type = 'AVATAR_FRAME'
+            AND upr_frame.is_active = 1
+            AND (upr_frame.expire_time IS NULL OR upr_frame.expire_time > NOW())
         WHERE p.id = #{postId}
     </select>
 
@@ -173,15 +224,53 @@
             p.like_count AS likeCount,
             p.comment_count AS commentCount,
             p.favorite_count AS favoriteCount,
-            p.is_top AS isTop,
+            CASE 
+                WHEN up_top.id IS NOT NULL AND (up_top.expire_time IS NULL OR up_top.expire_time > NOW()) THEN 1 
+                ELSE p.is_top 
+            END AS isTop,
             p.is_hot AS isHot,
+            CASE 
+                WHEN up_highlight.id IS NOT NULL AND (up_highlight.expire_time IS NULL OR up_highlight.expire_time > NOW()) THEN true 
+                ELSE false 
+            END AS isHighlight,
+            upr_color.privilege_value AS nicknameColor,
+            upr_frame.privilege_value AS avatarFrame,
             p.status,
             p.create_time AS createTime,
             p.update_time AS updateTime,
             0 AS isLiked,
-            0 AS isFavorited
+            0 AS isFavorited,
+            CASE 
+                WHEN upoints.total_points >= 5000 THEN '殿堂级'
+                WHEN upoints.total_points >= 1000 THEN '社区大V'
+                WHEN upoints.total_points >= 500 THEN '音乐达人'
+                WHEN upoints.total_points >= 100 THEN '活跃用户'
+                ELSE '新手'
+            END AS levelName,
+            CASE 
+                WHEN upoints.total_points >= 5000 THEN 5
+                WHEN upoints.total_points >= 1000 THEN 4
+                WHEN upoints.total_points >= 500 THEN 3
+                WHEN upoints.total_points >= 100 THEN 2
+                ELSE 1
+            END AS level
         FROM tb_community_post p
         LEFT JOIN tb_user u ON p.user_id = u.id
+        LEFT JOIN tb_user_points upoints ON p.user_id = upoints.user_id
+        LEFT JOIN tb_user_purchase up_top ON p.id = up_top.target_id 
+            AND up_top.item_code LIKE 'POST_TOP%' 
+            AND up_top.status = 1
+        LEFT JOIN tb_user_purchase up_highlight ON p.id = up_highlight.target_id 
+            AND up_highlight.item_code LIKE 'POST_HIGHLIGHT%' 
+            AND up_highlight.status = 1
+        LEFT JOIN tb_user_privilege upr_color ON p.user_id = upr_color.user_id
+            AND upr_color.privilege_type = 'NICKNAME_COLOR'
+            AND upr_color.is_active = 1
+            AND (upr_color.expire_time IS NULL OR upr_color.expire_time > NOW())
+        LEFT JOIN tb_user_privilege upr_frame ON p.user_id = upr_frame.user_id
+            AND upr_frame.privilege_type = 'AVATAR_FRAME'
+            AND upr_frame.is_active = 1
+            AND (upr_frame.expire_time IS NULL OR upr_frame.expire_time > NOW())
         <where>
             <!-- 管理端可以查看所有状态的帖子 -->
             <if test="status != null">
@@ -201,7 +290,13 @@
                 AND p.user_id = #{userId}
             </if>
         </where>
-        ORDER BY p.is_top DESC, p.create_time DESC
+        ORDER BY 
+            CASE 
+                WHEN up_top.id IS NOT NULL AND (up_top.expire_time IS NULL OR up_top.expire_time > NOW()) THEN 1 
+                ELSE p.is_top 
+            END DESC, 
+            up_top.purchase_time DESC,
+            p.create_time DESC
     </select>
 
 </mapper>

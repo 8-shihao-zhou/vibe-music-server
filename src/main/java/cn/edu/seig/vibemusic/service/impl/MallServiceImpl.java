@@ -83,7 +83,7 @@ public class MallServiceImpl implements IMallService {
             }
             log.info("用户积分: {}", userPoints);
 
-            // 获取用户已购买的特权
+            // 获取用户已购买的特权 (具体到某个具体的 privilegeValue)
             Map<String, Boolean> ownedPrivileges = new HashMap<>();
             if (userId != null) {
                 try {
@@ -93,7 +93,8 @@ public class MallServiceImpl implements IMallService {
                     log.info("查询到用户特权数量: {}", privileges.size());
                     
                     for (UserPrivilege privilege : privileges) {
-                        ownedPrivileges.put(privilege.getPrivilegeType(), true);
+                        // 使用 privilegeType + privilegeValue 作为 key，这样同一类型的不同颜色/头像框可以区分开
+                        ownedPrivileges.put(privilege.getPrivilegeType() + ":" + privilege.getPrivilegeValue(), true);
                     }
                 } catch (Exception e) {
                     log.warn("获取用户特权失败: {}", e.getMessage());
@@ -122,7 +123,8 @@ public class MallServiceImpl implements IMallService {
                     
                     // 设置是否已拥有（仅对特权类商品）
                     if ("AVATAR_FRAME".equals(item.getItemType()) || "NICKNAME_COLOR".equals(item.getItemType())) {
-                        vo.setAlreadyOwned(ownedPrivileges.containsKey(item.getItemType()));
+                        String value = "AVATAR_FRAME".equals(item.getItemType()) ? getFrameStyleFromCode(item.getItemCode()) : getColorFromCode(item.getItemCode());
+                        vo.setAlreadyOwned(ownedPrivileges.containsKey(item.getItemType() + ":" + value));
                     } else {
                         vo.setAlreadyOwned(false);
                     }
@@ -204,7 +206,7 @@ public class MallServiceImpl implements IMallService {
             userPurchaseMapper.insert(purchase);
 
             // 根据商品类型执行相应操作
-            handlePurchaseEffect(item, userId, targetId, purchase.getExpireTime());
+            handlePurchaseEffect(item, userId, targetId, purchase.getExpireTime(), purchase.getId());
 
             return true;
         } catch (Exception e) {
@@ -227,7 +229,7 @@ public class MallServiceImpl implements IMallService {
         if ("POST_TOP".equals(privilegeType) || "POST_HIGHLIGHT".equals(privilegeType)) {
             LambdaQueryWrapper<UserPurchase> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(UserPurchase::getUserId, userId)
-                   .eq(UserPurchase::getItemCode, privilegeType)
+                   .like(UserPurchase::getItemCode, privilegeType)
                    .eq(UserPurchase::getStatus, 1);
             
             if (targetId != null) {
@@ -268,18 +270,63 @@ public class MallServiceImpl implements IMallService {
         }
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean togglePrivilege(Long userId, String type, String value) {
+        // 如果要切换的是默认装扮（即取消装扮，可以用 "default" 作为 value 标识）
+        if ("default".equals(value) || "#333333".equals(value)) {
+            LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(UserPrivilege::getUserId, userId)
+                         .eq(UserPrivilege::getPrivilegeType, type);
+            UserPrivilege updatePrivilege = new UserPrivilege();
+            updatePrivilege.setIsActive(0);
+            userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+            return true;
+        }
+
+        // 先检查用户是否拥有该装扮
+        LambdaQueryWrapper<UserPrivilege> checkWrapper = new LambdaQueryWrapper<>();
+        checkWrapper.eq(UserPrivilege::getUserId, userId)
+                    .eq(UserPrivilege::getPrivilegeType, type)
+                    .eq(UserPrivilege::getPrivilegeValue, value);
+        UserPrivilege privilege = userPrivilegeMapper.selectOne(checkWrapper);
+
+        if (privilege == null) {
+            return false; // 未拥有该装扮
+        }
+
+        // 检查是否过期
+        if (privilege.getExpireTime() != null && privilege.getExpireTime().isBefore(LocalDateTime.now())) {
+            return false;
+        }
+
+        // 将该类型的所有其他装扮置为不激活
+        LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+        updateWrapper.eq(UserPrivilege::getUserId, userId)
+                     .eq(UserPrivilege::getPrivilegeType, type);
+        UserPrivilege updatePrivilege = new UserPrivilege();
+        updatePrivilege.setIsActive(0);
+        userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+
+        // 激活当前选中的装扮
+        privilege.setIsActive(1);
+        userPrivilegeMapper.updateById(privilege);
+
+        return true;
+    }
+
     /**
      * 处理购买效果
      */
-    private void handlePurchaseEffect(MallItem item, Long userId, Long targetId, LocalDateTime expireTime) {
+    private void handlePurchaseEffect(MallItem item, Long userId, Long targetId, LocalDateTime expireTime, Long currentPurchaseId) {
         switch (item.getItemType()) {
             case "POST_TOP":
-                // TODO: 实现帖子置顶逻辑
-                handlePostTop(targetId, expireTime);
+                // 实现帖子置顶逻辑
+                handlePostTop(targetId, expireTime, currentPurchaseId);
                 break;
             case "POST_HIGHLIGHT":
-                // TODO: 实现帖子高亮逻辑
-                handlePostHighlight(targetId, expireTime);
+                // 实现帖子高亮逻辑
+                handlePostHighlight(targetId, expireTime, currentPurchaseId);
                 break;
             case "AVATAR_FRAME":
                 handleAvatarFrame(userId, item.getItemCode(), expireTime);
@@ -290,13 +337,35 @@ public class MallServiceImpl implements IMallService {
         }
     }
 
-    private void handlePostTop(Long postId, LocalDateTime expireTime) {
-        // TODO: 实现帖子置顶逻辑
+    private void handlePostTop(Long postId, LocalDateTime expireTime, Long currentPurchaseId) {
+        // 实现帖子置顶逻辑: 将该帖子之前的置顶记录置为无效(避免重复导致查询出现笛卡尔积)
+        LambdaQueryWrapper<UserPurchase> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserPurchase::getTargetId, postId)
+               .like(UserPurchase::getItemCode, "POST_TOP")
+               .eq(UserPurchase::getStatus, 1)
+               .ne(UserPurchase::getId, currentPurchaseId); // 排除当前购买记录
+        
+        List<UserPurchase> oldPurchases = userPurchaseMapper.selectList(wrapper);
+        for (UserPurchase op : oldPurchases) {
+            op.setStatus(0);
+            userPurchaseMapper.updateById(op);
+        }
         log.info("帖子置顶：postId={}, expireTime={}", postId, expireTime);
     }
 
-    private void handlePostHighlight(Long postId, LocalDateTime expireTime) {
-        // TODO: 实现帖子高亮逻辑
+    private void handlePostHighlight(Long postId, LocalDateTime expireTime, Long currentPurchaseId) {
+        // 实现帖子高亮逻辑: 将该帖子之前的高亮记录置为无效
+        LambdaQueryWrapper<UserPurchase> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserPurchase::getTargetId, postId)
+               .like(UserPurchase::getItemCode, "POST_HIGHLIGHT")
+               .eq(UserPurchase::getStatus, 1)
+               .ne(UserPurchase::getId, currentPurchaseId); // 排除当前购买记录
+        
+        List<UserPurchase> oldPurchases = userPurchaseMapper.selectList(wrapper);
+        for (UserPurchase op : oldPurchases) {
+            op.setStatus(0);
+            userPurchaseMapper.updateById(op);
+        }
         log.info("帖子高亮：postId={}, expireTime={}", postId, expireTime);
     }
 
@@ -307,10 +376,19 @@ public class MallServiceImpl implements IMallService {
         // 更新或创建用户特权
         LambdaQueryWrapper<UserPrivilege> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserPrivilege::getUserId, userId)
-               .eq(UserPrivilege::getPrivilegeType, "AVATAR_FRAME");
+               .eq(UserPrivilege::getPrivilegeType, "AVATAR_FRAME")
+               .eq(UserPrivilege::getPrivilegeValue, frameStyle); // 根据具体样式查找
         
         UserPrivilege privilege = userPrivilegeMapper.selectOne(wrapper);
         if (privilege == null) {
+            // 先把其他同类型的激活状态置为0
+            LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(UserPrivilege::getUserId, userId)
+                         .eq(UserPrivilege::getPrivilegeType, "AVATAR_FRAME");
+            UserPrivilege updatePrivilege = new UserPrivilege();
+            updatePrivilege.setIsActive(0);
+            userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+
             privilege = new UserPrivilege();
             privilege.setUserId(userId);
             privilege.setPrivilegeType("AVATAR_FRAME");
@@ -319,7 +397,14 @@ public class MallServiceImpl implements IMallService {
             privilege.setIsActive(1);
             userPrivilegeMapper.insert(privilege);
         } else {
-            privilege.setPrivilegeValue(frameStyle);
+            // 已经是拥有的，更新过期时间并激活
+            LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(UserPrivilege::getUserId, userId)
+                         .eq(UserPrivilege::getPrivilegeType, "AVATAR_FRAME");
+            UserPrivilege updatePrivilege = new UserPrivilege();
+            updatePrivilege.setIsActive(0);
+            userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+
             privilege.setExpireTime(expireTime);
             privilege.setIsActive(1);
             userPrivilegeMapper.updateById(privilege);
@@ -333,10 +418,19 @@ public class MallServiceImpl implements IMallService {
         // 更新或创建用户特权
         LambdaQueryWrapper<UserPrivilege> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserPrivilege::getUserId, userId)
-               .eq(UserPrivilege::getPrivilegeType, "NICKNAME_COLOR");
+               .eq(UserPrivilege::getPrivilegeType, "NICKNAME_COLOR")
+               .eq(UserPrivilege::getPrivilegeValue, color); // 根据具体颜色查找
         
         UserPrivilege privilege = userPrivilegeMapper.selectOne(wrapper);
         if (privilege == null) {
+            // 先把其他同类型的激活状态置为0
+            LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(UserPrivilege::getUserId, userId)
+                         .eq(UserPrivilege::getPrivilegeType, "NICKNAME_COLOR");
+            UserPrivilege updatePrivilege = new UserPrivilege();
+            updatePrivilege.setIsActive(0);
+            userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+
             privilege = new UserPrivilege();
             privilege.setUserId(userId);
             privilege.setPrivilegeType("NICKNAME_COLOR");
@@ -345,7 +439,14 @@ public class MallServiceImpl implements IMallService {
             privilege.setIsActive(1);
             userPrivilegeMapper.insert(privilege);
         } else {
-            privilege.setPrivilegeValue(color);
+            // 已经是拥有的，更新过期时间并激活
+            LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(UserPrivilege::getUserId, userId)
+                         .eq(UserPrivilege::getPrivilegeType, "NICKNAME_COLOR");
+            UserPrivilege updatePrivilege = new UserPrivilege();
+            updatePrivilege.setIsActive(0);
+            userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+
             privilege.setExpireTime(expireTime);
             privilege.setIsActive(1);
             userPrivilegeMapper.updateById(privilege);

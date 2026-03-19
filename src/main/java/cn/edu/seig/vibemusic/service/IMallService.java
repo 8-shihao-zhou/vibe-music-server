@@ -31,4 +31,9 @@ public interface IMallService {
      * 获取商城商品列表（返回Result）
      */
     Result getMallItems();
+
+    /**
+     * 切换装扮
+     */
+    boolean togglePrivilege(Long userId, String type, String value);
 }

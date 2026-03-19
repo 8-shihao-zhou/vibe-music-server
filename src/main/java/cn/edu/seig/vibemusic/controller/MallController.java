@@ -100,4 +100,25 @@ public class MallController {
             return Result.error("检查特权失败");
         }
     }
+
+    /**
+     * 切换装扮（头像框/昵称颜色）
+     */
+    @PostMapping("/privilege/toggle")
+    public Result<String> togglePrivilege(@RequestParam String type, @RequestParam String value) {
+        try {
+            Long userId = UserContext.getCurrentUserId();
+            if (userId == null) {
+                return Result.error("用户未登录");
+            }
+            boolean success = mallService.togglePrivilege(userId, type, value);
+            if (success) {
+                return Result.success("装扮切换成功");
+            } else {
+                return Result.error("未拥有该装扮或已过期");
+            }
+        } catch (Exception e) {
+            return Result.error("装扮切换失败：" + e.getMessage());
+        }
+    }
 }

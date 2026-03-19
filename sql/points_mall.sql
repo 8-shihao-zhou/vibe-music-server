@@ -45,13 +45,13 @@ CREATE TABLE IF NOT EXISTS tb_user_privilege (
     is_active TINYINT DEFAULT 1 COMMENT '是否激活：1-激活，0-未激活',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_user_privilege (user_id, privilege_type),
+    UNIQUE KEY uk_user_privilege (user_id, privilege_type, privilege_value),
     INDEX idx_expire_time (expire_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户特权表';
 
 -- 插入默认商品数据（使用英文避免编码问题）
 INSERT INTO tb_mall_item (item_code, item_name, item_description, item_price, item_type, duration_days, sort_order) VALUES
-('POST_TOP_3D', 'Post Top (3 days)', 'Pin your post to the top for 3 days', 50, 'POST_TOP', 3, 1),
+('POST_TOP_3D', 'Post Top (3 days)', '将您的帖子置顶显示3天(多个置顶帖子按使用时间倒序排列，越晚使用越靠前)', 50, 'POST_TOP', 3, 1),
 ('POST_HIGHLIGHT_7D', 'Post Highlight (7 days)', 'Highlight your post for 7 days', 30, 'POST_HIGHLIGHT', 7, 2),
 ('AVATAR_FRAME_GOLD', 'Gold Avatar Frame', 'Add a gold frame to your avatar', 100, 'AVATAR_FRAME', 0, 3),
 ('AVATAR_FRAME_RAINBOW', 'Rainbow Avatar Frame', 'Add a rainbow frame to your avatar', 120, 'AVATAR_FRAME', 0, 4),

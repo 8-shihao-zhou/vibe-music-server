@@ -100,7 +100,27 @@ public class PostVO implements Serializable {
     private Boolean isHighlight;
 
     /**
-     * 状态
+     * 用户昵称颜色
+     */
+    private String nicknameColor;
+
+    /**
+     * 用户头像框样式
+     */
+    private String avatarFrame;
+
+    /**
+     * 用户等级名称
+     */
+    private String levelName;
+
+    /**
+     * 用户等级
+     */
+    private Integer level;
+
+    /**
+     * 帖子状态
      */
     private Integer status;
 
