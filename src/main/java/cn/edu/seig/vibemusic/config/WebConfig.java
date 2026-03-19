@@ -59,6 +59,9 @@ public class WebConfig implements WebMvcConfigurer {
                         "/artist/getAllArtists", "/artist/getArtistDetail/**",
                         "/song/getAllSongs", "/song/getRecommendedSongs", "/song/getSongDetail/**",
                         
+                        // 风格分类接口（无需登录）
+                        "/style/list", "/style/songs",
+                        
                         // 社区接口已在拦截器中处理，支持未登录浏览
                         // 移除了 /community/post/list 和 /community/post/detail/** 的排除
                         // 让它们经过拦截器，以便获取登录用户信息

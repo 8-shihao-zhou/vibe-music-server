@@ -111,4 +111,16 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 按风格分页查询歌曲 -->
+    <select id="getSongsByStyleId" resultType="cn.edu.seig.vibemusic.model.vo.SongVO">
+        SELECT DISTINCT s.id AS songId, s.name AS songName, s.album,
+               s.duration, s.cover_url AS coverUrl, s.audio_url AS audioUrl,
+               s.release_time AS releaseTime, a.name AS artistName
+        FROM tb_song s
+        JOIN tb_genre g ON s.id = g.song_id
+        LEFT JOIN tb_artist a ON s.artist_id = a.id
+        WHERE g.style_id = #{styleId}
+        ORDER BY s.release_time DESC
+    </select>
+
 </mapper>

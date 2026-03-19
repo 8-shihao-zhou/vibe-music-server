@@ -4,15 +4,23 @@ package cn.edu.seig.vibemusic.controller;
 import cn.edu.seig.vibemusic.model.dto.*;
 import cn.edu.seig.vibemusic.model.entity.Artist;
 import cn.edu.seig.vibemusic.model.entity.Playlist;
+import cn.edu.seig.vibemusic.model.entity.PlaylistBinding;
 import cn.edu.seig.vibemusic.model.vo.ArtistNameVO;
 import cn.edu.seig.vibemusic.model.vo.SongAdminVO;
+import cn.edu.seig.vibemusic.model.vo.SongVO;
 import cn.edu.seig.vibemusic.model.vo.UserManagementVO;
+import cn.edu.seig.vibemusic.mapper.PlaylistBindingMapper;
+import cn.edu.seig.vibemusic.mapper.SongMapper;
 import cn.edu.seig.vibemusic.result.PageResult;
 import cn.edu.seig.vibemusic.result.Result;
 import cn.edu.seig.vibemusic.service.*;
 import cn.edu.seig.vibemusic.util.BindingResultUtil;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,6 +52,12 @@ public class AdminController {
     private IPlaylistService playlistService;
     @Autowired
     private MinioService minioService;
+    @Autowired
+    private PlaylistBindingMapper playlistBindingMapper;
+    @Autowired
+    private SongMapper songMapper;
+    @Autowired
+    private CacheManager cacheManager;
 
     /**
      * 注册管理员
@@ -448,6 +462,50 @@ public class AdminController {
     @DeleteMapping("/deletePlaylists")
     public Result deletePlaylists(@RequestBody List<Long> playlistIds) {
         return playlistService.deletePlaylists(playlistIds);
+    }
+
+    /** 获取歌单内的歌曲列表 */
+    @GetMapping("/playlist/{id}/songs")
+    public Result<List<SongVO>> getPlaylistSongs(@PathVariable("id") Long playlistId) {
+        List<PlaylistBinding> bindings = playlistBindingMapper.selectList(
+                new QueryWrapper<PlaylistBinding>().eq("playlist_id", playlistId));
+        if (bindings.isEmpty()) return Result.success(List.of());
+        List<Long> songIds = bindings.stream().map(PlaylistBinding::getSongId).toList();
+        List<SongVO> songs = songMapper.selectList(
+                new QueryWrapper<cn.edu.seig.vibemusic.model.entity.Song>().in("id", songIds))
+                .stream().map(s -> {
+                    SongVO vo = new SongVO();
+                    vo.setSongId(s.getSongId());
+                    vo.setSongName(s.getSongName());
+                    vo.setAlbum(s.getAlbum());
+                    vo.setDuration(s.getDuration());
+                    vo.setCoverUrl(s.getCoverUrl());
+                    vo.setAudioUrl(s.getAudioUrl());
+                    return vo;
+                }).toList();
+        return Result.success(songs);
+    }
+
+    /** 向歌单添加歌曲 */
+    @PostMapping("/playlist/{id}/songs")
+    public Result addSongToPlaylist(@PathVariable("id") Long playlistId, @RequestParam Long songId) {
+        long exists = playlistBindingMapper.countBinding(playlistId, songId);
+        if (exists > 0) return Result.error("歌曲已在歌单中");
+        int insertResult = playlistBindingMapper.insertBinding(playlistId, songId);
+        if (insertResult > 0 && cacheManager.getCache("playlistCache") != null) {
+            cacheManager.getCache("playlistCache").clear();
+        }
+        return insertResult > 0 ? Result.success("添加成功") : Result.error("添加失败");
+    }
+
+    /** 从歌单移除歌曲 */
+    @DeleteMapping("/playlist/{id}/songs/{songId}")
+    public Result removeSongFromPlaylist(@PathVariable("id") Long playlistId, @PathVariable Long songId) {
+        int deleteResult = playlistBindingMapper.deleteBinding(playlistId, songId);
+        if (deleteResult > 0 && cacheManager.getCache("playlistCache") != null) {
+            cacheManager.getCache("playlistCache").clear();
+        }
+        return deleteResult > 0 ? Result.success("移除成功") : Result.error("移除失败");
     }
 
 }

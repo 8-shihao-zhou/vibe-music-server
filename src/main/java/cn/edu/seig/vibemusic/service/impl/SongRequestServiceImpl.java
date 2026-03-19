@@ -18,6 +18,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,9 @@ public class SongRequestServiceImpl extends ServiceImpl<SongRequestMapper, SongR
 
     @Autowired
     private SongMapper songMapper;
+
+    @Autowired
+    private CacheManager cacheManager;
 
     @Override
     public Result submitRequest(SongRequestDTO dto, Long userId) {
@@ -151,7 +155,11 @@ public class SongRequestServiceImpl extends ServiceImpl<SongRequestMapper, SongR
         request.setUpdateTime(LocalDateTime.now());
         updateById(request);
 
-        // 5. 发通知给用户
+        // 5. 清除歌手和歌曲缓存，确保用户端立即看到新歌曲
+        if (cacheManager.getCache("artistCache") != null) cacheManager.getCache("artistCache").clear();
+        if (cacheManager.getCache("songCache") != null) cacheManager.getCache("songCache").clear();
+
+        // 6. 发通知给用户
         notificationService.createNotificationsEnhanced(
                 List.of(request.getUserId()),
                 "歌曲收录申请已通过",

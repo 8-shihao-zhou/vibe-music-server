@@ -194,16 +194,23 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
-        // 从 Redis 获取缓存的推荐列表
-        String redisKey = "recommended_songs:" + userId;
+        // 从 Redis 获取缓存的推荐列表（按天缓存，key 带日期）
+        String today = java.time.LocalDate.now().toString(); // e.g. "2026-03-19"
+        String redisKey = "daily_recommended_songs:" + userId + ":" + today;
         List<SongVO> cachedSongs = redisTemplate.opsForList().range(redisKey, 0, -1);
 
-        // 如果 Redis 没有缓存，则查询数据库并缓存
+        // 如果 Redis 没有缓存，则查询数据库并缓存到今天结束
         if (cachedSongs == null || cachedSongs.isEmpty()) {
             // 根据排序后的风格推荐歌曲（排除已收藏歌曲）
             cachedSongs = songMapper.getRecommendedSongsByStyles(sortedStyleIds, favoriteSongIds, 80);
-            redisTemplate.opsForList().rightPushAll(redisKey, cachedSongs);
-            redisTemplate.expire(redisKey, 30, TimeUnit.MINUTES); // 设置过期时间 30 分钟
+            if (!cachedSongs.isEmpty()) {
+                redisTemplate.opsForList().rightPushAll(redisKey, cachedSongs);
+                // 计算到今天结束的剩余秒数
+                long secondsUntilMidnight = java.time.LocalDateTime.now()
+                        .until(java.time.LocalDate.now().plusDays(1).atStartOfDay(),
+                                java.time.temporal.ChronoUnit.SECONDS);
+                redisTemplate.expire(redisKey, secondsUntilMidnight, TimeUnit.SECONDS);
+            }
         }
 
         // 随机选取 20 首
@@ -292,7 +299,7 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
      * @return 结果
      */
     @Override
-    @CacheEvict(cacheNames = "songCache", allEntries = true)
+    @CacheEvict(cacheNames = {"songCache", "artistCache"}, allEntries = true)
     public Result addSong(SongAddDTO songAddDTO) {
         System.out.println("========== 开始添加歌曲 ==========");
         System.out.println("接收到的数据:");
@@ -383,7 +390,7 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
      * @return 结果
      */
     @Override
-    @CacheEvict(cacheNames = "songCache", allEntries = true)
+    @CacheEvict(cacheNames = {"songCache", "artistCache"}, allEntries = true)
     public Result updateSong(SongUpdateDTO songUpdateDTO) {
         // 查询数据库中是否存在该歌曲
         Song songInDB = songMapper.selectById(songUpdateDTO.getSongId());
@@ -478,7 +485,7 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
      * @return 删除结果
      */
     @Override
-    @CacheEvict(cacheNames = "songCache", allEntries = true)
+    @CacheEvict(cacheNames = {"songCache", "artistCache"}, allEntries = true)
     public Result deleteSong(Long songId) {
         Song song = songMapper.selectById(songId);
         if (song == null) {
@@ -508,7 +515,7 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
      * @return 删除结果
      */
     @Override
-    @CacheEvict(cacheNames = "songCache", allEntries = true)
+    @CacheEvict(cacheNames = {"songCache", "artistCache"}, allEntries = true)
     public Result deleteSongs(List<Long> songIds) {
         // 1. 查询歌曲信息，获取歌曲封面 URL 列表
         List<Song> songs = songMapper.selectByIds(songIds);

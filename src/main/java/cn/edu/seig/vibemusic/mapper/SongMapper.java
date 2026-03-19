@@ -109,4 +109,7 @@ public interface SongMapper extends BaseMapper<Song> {
                                              @Param("favoriteSongIds") List<Long> favoriteSongIds,
                                              @Param("limit") int limit);
 
+    // 按风格分页查询歌曲
+    IPage<SongVO> getSongsByStyleId(Page<SongVO> page, @Param("styleId") Long styleId);
+
 }

@@ -31,7 +31,7 @@ public class PlaylistBinding implements Serializable {
     /**
      * 歌单 id
      */
-    @TableId(value = "playlist_id", type = IdType.AUTO)
+    @TableId(value = "playlist_id", type = IdType.INPUT)
     private Long playlistId;
 
     /**
