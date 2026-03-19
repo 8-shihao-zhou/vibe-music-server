@@ -73,6 +73,9 @@ public class WebConfig implements WebMvcConfigurer {
                         "/files/**",    //放行 D盘视频文件的访问，让前端能播放
                         "/uploads/**",   //放行上传文件的访问（帖子图片）
                         
+                        // 文件代理接口（无需登录，供前端直接访问 MinIO 文件）
+                        "/file/proxy",
+
                         // 测试接口
                         "/test/**"
                 );

@@ -2,6 +2,7 @@ package cn.edu.seig.vibemusic.service.impl;
 
 import cn.edu.seig.vibemusic.constant.MessageConstant;
 import cn.edu.seig.vibemusic.service.MinioService;
+import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
@@ -59,6 +60,25 @@ public class MinioServiceImpl implements MinioService {
         } catch (Exception e) {
             throw new RuntimeException(MessageConstant.FILE_UPLOAD + MessageConstant.FAILED + "：" + e.getMessage());
         }
+    }
+
+    @Override
+    public InputStream getObject(String objectPath) {
+        try {
+            return minioClient.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(objectPath)
+                            .build()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("文件读取失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public String getBucketName() {
+        return bucketName;
     }
 
     /**

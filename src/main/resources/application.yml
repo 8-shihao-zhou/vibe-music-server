@@ -69,6 +69,7 @@ role-path-permissions:
       - "/notification/admin/"
       - "/community/post/admin/" # 社区管理功能
       - "/report/admin/" # 举报管理功能
+      - "/song-request/admin/" # 歌曲收录请求管理
     ROLE_USER:
       - "/user/"
       - "/playlist/"
@@ -85,6 +86,7 @@ role-path-permissions:
       - "/community/" # 社区功能
       - "/tag/" # 标签功能
       - "/report/" # 举报功能
+      - "/song-request/" # 歌曲收录请求
 
 minio:
   endpoint: http://127.0.0.1:9000 # 修改你的 MinIO 端点

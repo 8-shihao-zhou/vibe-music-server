@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.seig.vibemusic.mapper.SongRequestMapper">
+
+    <select id="selectRequestPage" resultType="cn.edu.seig.vibemusic.model.vo.SongRequestVO">
+        SELECT
+            r.id, r.user_id AS userId, u.username,
+            r.song_name AS songName, r.artist_name AS artistName,
+            r.album, r.style, r.release_time AS releaseTime,
+            r.cover_url AS coverUrl, r.audio_url AS audioUrl,
+            r.license_desc AS licenseDesc, r.remark,
+            r.status, r.reject_reason AS rejectReason,
+            r.create_time AS createTime
+        FROM tb_song_request r
+        LEFT JOIN tb_user u ON r.user_id = u.id
+        <where>
+            <if test="status != null">AND r.status = #{status}</if>
+            <if test="keyword != null and keyword != ''">
+                AND (r.song_name LIKE CONCAT('%', #{keyword}, '%')
+                  OR r.artist_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <select id="selectUserRequestPage" resultType="cn.edu.seig.vibemusic.model.vo.SongRequestVO">
+        SELECT
+            r.id, r.user_id AS userId, u.username,
+            r.song_name AS songName, r.artist_name AS artistName,
+            r.album, r.style, r.release_time AS releaseTime,
+            r.cover_url AS coverUrl, r.audio_url AS audioUrl,
+            r.license_desc AS licenseDesc, r.remark,
+            r.status, r.reject_reason AS rejectReason,
+            r.create_time AS createTime
+        FROM tb_song_request r
+        LEFT JOIN tb_user u ON r.user_id = u.id
+        WHERE r.user_id = #{userId}
+        ORDER BY r.create_time DESC
+    </select>
+
+</mapper>

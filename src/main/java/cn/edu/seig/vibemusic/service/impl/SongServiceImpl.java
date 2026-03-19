@@ -310,8 +310,8 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
         song.setStyle(songAddDTO.getStyle());
         song.setReleaseTime(songAddDTO.getReleaseTime());
         
-        // ✅ 设置默认值为 null 而不是空字符串
-        song.setDuration("00:00");
+        // ✅ 设置默认值为 "0"（秒数字符串，与其他歌曲保持一致）
+        song.setDuration("0");
         song.setCoverUrl(null);  // null 而不是 ""
         song.setAudioUrl(null);  // null 而不是 ""
         song.setLyric(null);

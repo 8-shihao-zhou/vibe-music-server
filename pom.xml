@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>cn.edu.seig</groupId>
-    <artifactId>Vibe-music-server</artifactId>
+    <artifactId>ai-music-server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>vibe-music-server</name>
-    <description>vibe-music-server</description>
+    <name>ai-music-server</name>
+    <description>ai-music-server</description>
     <url/>
     <licenses>
         <license/>
@@ -126,6 +126,13 @@
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
             <version>5.8.26</version>
+        </dependency>
+
+        <!-- mp3agic：解析 MP3 文件时长 -->
+        <dependency>
+            <groupId>com.mpatric</groupId>
+            <artifactId>mp3agic</artifactId>
+            <version>0.9.1</version>
         </dependency>
 
         <!-- Swagger相关依赖 -->
