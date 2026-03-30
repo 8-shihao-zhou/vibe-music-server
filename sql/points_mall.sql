@@ -58,4 +58,16 @@ INSERT INTO tb_mall_item (item_code, item_name, item_description, item_price, it
 ('NICKNAME_COLOR_RED', 'Red Nickname', 'Display your nickname in red color', 80, 'NICKNAME_COLOR', 0, 5),
 ('NICKNAME_COLOR_BLUE', 'Blue Nickname', 'Display your nickname in blue color', 80, 'NICKNAME_COLOR', 0, 6),
 ('NICKNAME_COLOR_PURPLE', 'Purple Nickname', 'Display your nickname in purple color', 80, 'NICKNAME_COLOR', 0, 7),
-('NICKNAME_COLOR_GRADIENT', 'Gradient Nickname', 'Display your nickname in gradient color', 150, 'NICKNAME_COLOR', 0, 8);
+('NICKNAME_COLOR_GRADIENT', 'Gradient Nickname', 'Display your nickname in gradient color', 150, 'NICKNAME_COLOR', 0, 8),
+-- 主页装扮
+('PROFILE_THEME_OCEAN', '深海主题', '深邃的深海蓝色主页装扮', 200, 'PROFILE_THEME', 0, 9),
+('PROFILE_THEME_SUNSET', '落日主题', '浪漫的粉橙渐变主页装扮', 200, 'PROFILE_THEME', 0, 10),
+('PROFILE_THEME_FOREST', '森林主题', '清新的绿色森林主页装扮', 200, 'PROFILE_THEME', 0, 11),
+('PROFILE_THEME_AURORA', '极光主题', '绚丽的极光色主页装扮', 300, 'PROFILE_THEME', 0, 12);
+
+-- 帖子装扮商品（执行此 INSERT 添加到数据库）
+INSERT INTO tb_mall_item (item_code, item_name, item_description, item_price, item_type, duration_days, sort_order) VALUES
+('POST_THEME_STARRY', '星空帖子装扮', '帖子卡片呈现深邃星空，流星划过，繁星闪烁', 180, 'POST_THEME', 0, 13),
+('POST_THEME_SAKURA', '樱花帖子装扮', '帖子卡片飘落粉色樱花花瓣，浪漫唯美', 180, 'POST_THEME', 0, 14),
+('POST_THEME_NEON', '霓虹帖子装扮', '赛博朋克风格，霓虹扫光线条动态效果', 250, 'POST_THEME', 0, 15),
+('POST_THEME_LAVA', '熔岩帖子装扮', '橙红熔岩风格，火花上升，炽热动感', 250, 'POST_THEME', 0, 16);

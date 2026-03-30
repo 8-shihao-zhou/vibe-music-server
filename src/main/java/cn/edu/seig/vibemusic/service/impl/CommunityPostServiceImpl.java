@@ -89,6 +89,9 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
     @Autowired
     private cn.edu.seig.vibemusic.mapper.UserMvMapper userMvMapper;
 
+    @Autowired
+    private cn.edu.seig.vibemusic.mapper.UserPrivilegeMapper userPrivilegeMapper;
+
     @Value("${file.upload.url-prefix:http://localhost:9000}")
     private String urlPrefix;
 
@@ -886,7 +889,20 @@ public class CommunityPostServiceImpl extends ServiceImpl<CommunityPostMapper, C
         } else {
             stats.put("isFollowing", false);
         }
-        
+
+        // 查询用户激活的主页装扮
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<cn.edu.seig.vibemusic.model.entity.UserPrivilege> themeWrapper =
+            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+        themeWrapper.eq(cn.edu.seig.vibemusic.model.entity.UserPrivilege::getUserId, userId)
+                    .eq(cn.edu.seig.vibemusic.model.entity.UserPrivilege::getPrivilegeType, "PROFILE_THEME")
+                    .eq(cn.edu.seig.vibemusic.model.entity.UserPrivilege::getIsActive, 1);
+        cn.edu.seig.vibemusic.model.entity.UserPrivilege themePrivilege = userPrivilegeMapper.selectOne(themeWrapper);
+        if (themePrivilege != null && (themePrivilege.getExpireTime() == null || themePrivilege.getExpireTime().isAfter(LocalDateTime.now()))) {
+            stats.put("profileTheme", themePrivilege.getPrivilegeValue());
+        } else {
+            stats.put("profileTheme", null);
+        }
+
         return Result.success(stats);
     }
 

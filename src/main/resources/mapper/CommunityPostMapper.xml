@@ -31,6 +31,7 @@
             END AS isHighlight,
             upr_color.privilege_value AS nicknameColor,
             upr_frame.privilege_value AS avatarFrame,
+            upr_post_theme.privilege_value AS postTheme,
             p.status,
             p.create_time AS createTime,
             p.update_time AS updateTime,
@@ -69,6 +70,10 @@
             AND upr_frame.privilege_type = 'AVATAR_FRAME'
             AND upr_frame.is_active = 1
             AND (upr_frame.expire_time IS NULL OR upr_frame.expire_time > NOW())
+        LEFT JOIN tb_user_privilege upr_post_theme ON p.user_id = upr_post_theme.user_id
+            AND upr_post_theme.privilege_type = 'POST_THEME'
+            AND upr_post_theme.is_active = 1
+            AND (upr_post_theme.expire_time IS NULL OR upr_post_theme.expire_time > NOW())
         WHERE 1=1
         <if test="status != null">
             AND p.status = #{status}
@@ -139,6 +144,7 @@
             END AS isHighlight,
             upr_color.privilege_value AS nicknameColor,
             upr_frame.privilege_value AS avatarFrame,
+            upr_post_theme.privilege_value AS postTheme,
             p.status,
             p.create_time AS createTime,
             p.update_time AS updateTime,
@@ -177,6 +183,10 @@
             AND upr_frame.privilege_type = 'AVATAR_FRAME'
             AND upr_frame.is_active = 1
             AND (upr_frame.expire_time IS NULL OR upr_frame.expire_time > NOW())
+        LEFT JOIN tb_user_privilege upr_post_theme ON p.user_id = upr_post_theme.user_id
+            AND upr_post_theme.privilege_type = 'POST_THEME'
+            AND upr_post_theme.is_active = 1
+            AND (upr_post_theme.expire_time IS NULL OR upr_post_theme.expire_time > NOW())
         WHERE p.id = #{postId}
     </select>
 
@@ -235,6 +245,7 @@
             END AS isHighlight,
             upr_color.privilege_value AS nicknameColor,
             upr_frame.privilege_value AS avatarFrame,
+            upr_post_theme.privilege_value AS postTheme,
             p.status,
             p.create_time AS createTime,
             p.update_time AS updateTime,
@@ -271,6 +282,10 @@
             AND upr_frame.privilege_type = 'AVATAR_FRAME'
             AND upr_frame.is_active = 1
             AND (upr_frame.expire_time IS NULL OR upr_frame.expire_time > NOW())
+        LEFT JOIN tb_user_privilege upr_post_theme ON p.user_id = upr_post_theme.user_id
+            AND upr_post_theme.privilege_type = 'POST_THEME'
+            AND upr_post_theme.is_active = 1
+            AND (upr_post_theme.expire_time IS NULL OR upr_post_theme.expire_time > NOW())
         <where>
             <!-- 管理端可以查看所有状态的帖子 -->
             <if test="status != null">

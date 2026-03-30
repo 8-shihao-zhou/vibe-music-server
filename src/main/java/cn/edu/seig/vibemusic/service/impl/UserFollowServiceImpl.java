@@ -45,6 +45,9 @@ public class UserFollowServiceImpl extends ServiceImpl<UserFollowMapper, UserFol
     @Autowired
     private cn.edu.seig.vibemusic.service.IPointsService pointsService;
 
+    @Autowired
+    private cn.edu.seig.vibemusic.mapper.UserPrivilegeMapper userPrivilegeMapper;
+
     /**
      * 获取当前登录用户ID
      */
@@ -222,6 +225,8 @@ public class UserFollowServiceImpl extends ServiceImpl<UserFollowMapper, UserFol
             userMap.put("followingCount", user.getFollowingCount() != null ? user.getFollowingCount() : 0);
             // 检查当前用户是否关注了该用户
             userMap.put("isFollowing", isFollowing(currentUserId, user.getUserId()));
+            // 查询用户激活的主页装扮
+            userMap.put("profileTheme", getActiveProfileTheme(user.getUserId()));
             return userMap;
         }).collect(Collectors.toList());
 
@@ -271,6 +276,8 @@ public class UserFollowServiceImpl extends ServiceImpl<UserFollowMapper, UserFol
             userMap.put("followingCount", user.getFollowingCount() != null ? user.getFollowingCount() : 0);
             // 检查当前用户是否关注了该用户
             userMap.put("isFollowing", isFollowing(currentUserId, user.getUserId()));
+            // 查询用户激活的主页装扮
+            userMap.put("profileTheme", getActiveProfileTheme(user.getUserId()));
             return userMap;
         }).collect(Collectors.toList());
 
@@ -302,5 +309,24 @@ public class UserFollowServiceImpl extends ServiceImpl<UserFollowMapper, UserFol
         }
 
         return Result.success(stats);
+    }
+
+    /**
+     * 获取用户激活的主页装扮
+     */
+    private String getActiveProfileTheme(Long userId) {
+        try {
+            LambdaQueryWrapper<cn.edu.seig.vibemusic.model.entity.UserPrivilege> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(cn.edu.seig.vibemusic.model.entity.UserPrivilege::getUserId, userId)
+                   .eq(cn.edu.seig.vibemusic.model.entity.UserPrivilege::getPrivilegeType, "PROFILE_THEME")
+                   .eq(cn.edu.seig.vibemusic.model.entity.UserPrivilege::getIsActive, 1);
+            cn.edu.seig.vibemusic.model.entity.UserPrivilege privilege = userPrivilegeMapper.selectOne(wrapper);
+            if (privilege != null && (privilege.getExpireTime() == null || privilege.getExpireTime().isAfter(java.time.LocalDateTime.now()))) {
+                return privilege.getPrivilegeValue();
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return null;
     }
 }

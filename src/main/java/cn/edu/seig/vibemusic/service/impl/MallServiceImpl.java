@@ -85,6 +85,7 @@ public class MallServiceImpl implements IMallService {
 
             // 获取用户已购买的特权 (具体到某个具体的 privilegeValue)
             Map<String, Boolean> ownedPrivileges = new HashMap<>();
+            Map<String, Boolean> activePrivileges = new HashMap<>();
             if (userId != null) {
                 try {
                     LambdaQueryWrapper<UserPrivilege> privilegeWrapper = new LambdaQueryWrapper<>();
@@ -95,6 +96,9 @@ public class MallServiceImpl implements IMallService {
                     for (UserPrivilege privilege : privileges) {
                         // 使用 privilegeType + privilegeValue 作为 key，这样同一类型的不同颜色/头像框可以区分开
                         ownedPrivileges.put(privilege.getPrivilegeType() + ":" + privilege.getPrivilegeValue(), true);
+                        if (privilege.getIsActive() != null && privilege.getIsActive() == 1) {
+                            activePrivileges.put(privilege.getPrivilegeType() + ":" + privilege.getPrivilegeValue(), true);
+                        }
                     }
                 } catch (Exception e) {
                     log.warn("获取用户特权失败: {}", e.getMessage());
@@ -125,6 +129,14 @@ public class MallServiceImpl implements IMallService {
                     if ("AVATAR_FRAME".equals(item.getItemType()) || "NICKNAME_COLOR".equals(item.getItemType())) {
                         String value = "AVATAR_FRAME".equals(item.getItemType()) ? getFrameStyleFromCode(item.getItemCode()) : getColorFromCode(item.getItemCode());
                         vo.setAlreadyOwned(ownedPrivileges.containsKey(item.getItemType() + ":" + value));
+                    } else if ("PROFILE_THEME".equals(item.getItemType())) {
+                        String themeValue = getThemeFromCode(item.getItemCode());
+                        vo.setAlreadyOwned(ownedPrivileges.containsKey("PROFILE_THEME:" + themeValue));
+                        vo.setIsActive(activePrivileges.containsKey("PROFILE_THEME:" + themeValue));
+                    } else if ("POST_THEME".equals(item.getItemType())) {
+                        String themeValue = getPostThemeFromCode(item.getItemCode());
+                        vo.setAlreadyOwned(ownedPrivileges.containsKey("POST_THEME:" + themeValue));
+                        vo.setIsActive(activePrivileges.containsKey("POST_THEME:" + themeValue));
                     } else {
                         vo.setAlreadyOwned(false);
                     }
@@ -334,6 +346,12 @@ public class MallServiceImpl implements IMallService {
             case "NICKNAME_COLOR":
                 handleNicknameColor(userId, item.getItemCode(), expireTime);
                 break;
+            case "PROFILE_THEME":
+                handleProfileTheme(userId, item.getItemCode(), expireTime);
+                break;
+            case "POST_THEME":
+                handlePostTheme(userId, item.getItemCode(), expireTime);
+                break;
         }
     }
 
@@ -468,6 +486,98 @@ public class MallServiceImpl implements IMallService {
             case "NICKNAME_COLOR_PURPLE": return "#8c7ae6";
             case "NICKNAME_COLOR_GRADIENT": return "linear-gradient(45deg, #ff6b6b, #4ecdc4)";
             default: return "#333333";
+        }
+    }
+
+    private String getThemeFromCode(String itemCode) {
+        switch (itemCode) {
+            case "PROFILE_THEME_OCEAN": return "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)";
+            case "PROFILE_THEME_SUNSET": return "linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #fda085 100%)";
+            case "PROFILE_THEME_FOREST": return "linear-gradient(135deg, #134e5e 0%, #71b280 100%)";
+            case "PROFILE_THEME_AURORA": return "linear-gradient(135deg, #00c3ff 0%, #ffff1c 50%, #ff00c8 100%)";
+            default: return "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+        }
+    }
+
+    private String getPostThemeFromCode(String itemCode) {
+        switch (itemCode) {
+            case "POST_THEME_STARRY": return "starry";
+            case "POST_THEME_SAKURA": return "sakura";
+            case "POST_THEME_NEON":   return "neon";
+            case "POST_THEME_LAVA":   return "lava";
+            default: return "default";
+        }
+    }
+
+    private void handlePostTheme(Long userId, String itemCode, LocalDateTime expireTime) {
+        String themeValue = getPostThemeFromCode(itemCode);
+        LambdaQueryWrapper<UserPrivilege> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserPrivilege::getUserId, userId)
+               .eq(UserPrivilege::getPrivilegeType, "POST_THEME")
+               .eq(UserPrivilege::getPrivilegeValue, themeValue);
+        UserPrivilege privilege = userPrivilegeMapper.selectOne(wrapper);
+        if (privilege == null) {
+            LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(UserPrivilege::getUserId, userId)
+                         .eq(UserPrivilege::getPrivilegeType, "POST_THEME");
+            UserPrivilege updatePrivilege = new UserPrivilege();
+            updatePrivilege.setIsActive(0);
+            userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+
+            privilege = new UserPrivilege();
+            privilege.setUserId(userId);
+            privilege.setPrivilegeType("POST_THEME");
+            privilege.setPrivilegeValue(themeValue);
+            privilege.setExpireTime(expireTime);
+            privilege.setIsActive(1);
+            userPrivilegeMapper.insert(privilege);
+        } else {
+            LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(UserPrivilege::getUserId, userId)
+                         .eq(UserPrivilege::getPrivilegeType, "POST_THEME");
+            UserPrivilege updatePrivilege = new UserPrivilege();
+            updatePrivilege.setIsActive(0);
+            userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+
+            privilege.setExpireTime(expireTime);
+            privilege.setIsActive(1);
+            userPrivilegeMapper.updateById(privilege);
+        }
+    }
+
+    private void handleProfileTheme(Long userId, String itemCode, LocalDateTime expireTime) {        String themeValue = getThemeFromCode(itemCode);
+        LambdaQueryWrapper<UserPrivilege> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserPrivilege::getUserId, userId)
+               .eq(UserPrivilege::getPrivilegeType, "PROFILE_THEME")
+               .eq(UserPrivilege::getPrivilegeValue, themeValue);
+        UserPrivilege privilege = userPrivilegeMapper.selectOne(wrapper);
+        if (privilege == null) {
+            // 先把其他同类型激活状态置为0
+            LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(UserPrivilege::getUserId, userId)
+                         .eq(UserPrivilege::getPrivilegeType, "PROFILE_THEME");
+            UserPrivilege updatePrivilege = new UserPrivilege();
+            updatePrivilege.setIsActive(0);
+            userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+
+            privilege = new UserPrivilege();
+            privilege.setUserId(userId);
+            privilege.setPrivilegeType("PROFILE_THEME");
+            privilege.setPrivilegeValue(themeValue);
+            privilege.setExpireTime(expireTime);
+            privilege.setIsActive(1);
+            userPrivilegeMapper.insert(privilege);
+        } else {
+            LambdaQueryWrapper<UserPrivilege> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(UserPrivilege::getUserId, userId)
+                         .eq(UserPrivilege::getPrivilegeType, "PROFILE_THEME");
+            UserPrivilege updatePrivilege = new UserPrivilege();
+            updatePrivilege.setIsActive(0);
+            userPrivilegeMapper.update(updatePrivilege, updateWrapper);
+
+            privilege.setExpireTime(expireTime);
+            privilege.setIsActive(1);
+            userPrivilegeMapper.updateById(privilege);
         }
     }
 }
