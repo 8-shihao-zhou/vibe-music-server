@@ -109,9 +109,6 @@ public class PostVO implements Serializable {
      */
     private String avatarFrame;
 
-    /**
-     * 帖子装扮主题（用户购买的帖子装扮）
-     */
     private String postTheme;
 
     /**

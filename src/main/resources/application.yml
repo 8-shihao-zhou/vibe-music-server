@@ -87,6 +87,8 @@ role-path-permissions:
       - "/tag/" # 标签功能
       - "/report/" # 举报功能
       - "/song-request/" # 歌曲收录请求
+      - "/agent/" #智能体请求
+
 
 minio:
   endpoint: http://127.0.0.1:9000 # 修改你的 MinIO 端点
@@ -110,3 +112,12 @@ file:
   upload:
     path: D:/music-video/vibe-music-server/uploads
     url-prefix: http://localhost:8080
+
+ # 智能体服务配置
+agent:
+  llm:
+    base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api-key: sk-15fee0096ccc42148f11d9390761b2a1
+    model-name: qwen3-max
+    temperature: 0.2
+
