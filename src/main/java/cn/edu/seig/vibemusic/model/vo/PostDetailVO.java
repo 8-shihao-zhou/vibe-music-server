@@ -96,6 +96,16 @@ public class PostDetailVO implements Serializable {
     private Integer isHot;
 
     /**
+     * 鏄惁楂樹寒锛堥€氳繃绉垎鍟嗗煄璐拱锛?
+     */
+    private Boolean isHighlight;
+
+    /**
+     * 帖子装扮主题
+     */
+    private String postTheme;
+
+    /**
      * 状态
      */
     private Integer status;

@@ -1,31 +1,49 @@
 package cn.edu.seig.vibemusic.agent.tool;
 
+import cn.edu.seig.vibemusic.agent.enums.AgentActionType;
+import cn.edu.seig.vibemusic.agent.model.vo.AgentActionVO;
 import cn.edu.seig.vibemusic.agent.model.vo.AgentToolDataVO;
 import dev.langchain4j.agent.tool.Tool;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
- * 页面导航相关工具
- *
- * 说明：
- * 1. 负责把用户自然语言解析成前端路由
- * 2. 当前先支持所有静态页面
- * 3. 后续如果要支持歌手详情、歌单详情这类带 ID 页面，再扩展单独解析逻辑
+ * 页面导航工具。
  */
 @Component
+@RequiredArgsConstructor
 public class AgentNavigationTool {
 
-    @Tool("根据用户输入解析应该跳转到哪个页面路径")
+    private final AgentRuntimeContext agentRuntimeContext;
+
+    /**
+     * 解析用户想打开哪个页面，并准备前端跳转动作。
+     *
+     * @param userMessage 用户原话
+     * @return 便于模型理解的文本结果
+     */
+    @Tool("根据用户原话解析要打开的页面，并在命中时准备页面跳转动作。适用于打开页面、进入页面、去某个功能页等请求。")
     public String resolvePage(String userMessage) {
         AgentToolDataVO data = resolvePageData(userMessage);
-        if (Boolean.TRUE.equals(data.getSuccess())) {
-            return String.format("页面名称：%s，页面路径：%s", data.getPageName(), data.getPagePath());
+        agentRuntimeContext.setToolData(data);
+
+        if (!Boolean.TRUE.equals(data.getSuccess())) {
+            return "未识别到明确页面";
         }
-        return "未识别到明确页面";
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("path", data.getPagePath());
+        payload.put("pageName", data.getPageName());
+
+        agentRuntimeContext.addAction(new AgentActionVO(AgentActionType.NAVIGATE_TO.getCode(), payload));
+        return String.format("已解析页面：%s，路径=%s，已准备跳转动作", data.getPageName(), data.getPagePath());
     }
 
     /**
-     * 供 Service 使用的结构化页面解析
+     * 供后端使用的结构化页面解析方法
      */
     public AgentToolDataVO resolvePageData(String userMessage) {
         AgentToolDataVO data = new AgentToolDataVO();
@@ -44,7 +62,7 @@ public class AgentNavigationTool {
                     data.setSuccess(true);
                     data.setPagePath(pageMapping.getPagePath());
                     data.setPageName(pageMapping.getPageName());
-                    data.setMessage("解析到页面：" + pageMapping.getPageName());
+                    data.setMessage("已解析到页面：" + pageMapping.getPageName());
                     return data;
                 }
             }
@@ -55,15 +73,15 @@ public class AgentNavigationTool {
     }
 
     /**
-     * 对用户输入做简单标准化，提升页面匹配成功率
+     * 对输入做标准化，提高匹配成功率
      */
     private String normalizeMessage(String userMessage) {
         return userMessage.trim()
                 .toLowerCase()
                 .replace("页面", "")
                 .replace("界面", "")
+                .replace("一个", "")
                 .replace("一下", "")
-                .replace("一下子", "")
                 .replace("帮我", "")
                 .replace("请帮我", "")
                 .replace("带我去", "")

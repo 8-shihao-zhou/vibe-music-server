@@ -1,8 +1,5 @@
 package cn.edu.seig.vibemusic.agent.tool;
 
-import dev.langchain4j.agent.tool.Tool;
-import org.springframework.stereotype.Component;
-
 import cn.edu.seig.vibemusic.agent.model.vo.AgentToolDataVO;
 import cn.edu.seig.vibemusic.model.vo.UserPointsVO;
 import cn.edu.seig.vibemusic.result.Result;
@@ -13,48 +10,42 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * 用户信息相关工具
+ * 用户信息相关工具。
  */
 @Component
 @RequiredArgsConstructor
 public class AgentUserTool {
 
-    /**
-     * 通知业务服务，用于查询未读通知数量
-     */
     private final INotificationService notificationService;
-
-    /**
-     * 积分业务服务，用于查询用户积分信息
-     */
     private final IPointsService pointsService;
+    private final AgentRuntimeContext agentRuntimeContext;
 
     /**
-     * 提供给大模型调用的未读通知查询工具
-     *
-     * @param userId 当前用户 ID
-     * @return 便于模型理解的文本结果
+     * 查询当前会话用户的未读通知数量。
      */
-    @Tool("查询用户未读通知数量")
-    public String getUnreadNotificationCount(Long userId) {
+    @Tool("查询当前登录用户的未读通知数量。适用于用户问未读通知、通知条数、通知数量等问题。")
+    public String getUnreadNotificationCount() {
+        Long userId = agentRuntimeContext.current().getUserId();
         AgentToolDataVO data = getUnreadNotificationCountData(userId);
+        agentRuntimeContext.setToolData(data);
+
         if (Boolean.TRUE.equals(data.getSuccess())) {
-            return "当前未读通知数量：" + data.getUnreadCount();
+            return "当前未读通知数量为：" + data.getUnreadCount();
         }
         return "查询未读通知失败";
     }
 
     /**
-     * 提供给大模型调用的积分查询工具
-     *
-     * @param userId 当前用户 ID
-     * @return 便于模型理解的文本结果
+     * 查询当前会话用户的积分信息。
      */
-    @Tool("查询用户积分")
-    public String getUserPoints(Long userId) {
+    @Tool("查询当前登录用户的积分信息。适用于用户问积分、可用积分、总积分等问题。")
+    public String getUserPoints() {
+        Long userId = agentRuntimeContext.current().getUserId();
         AgentToolDataVO data = getUserPointsData(userId);
+        agentRuntimeContext.setToolData(data);
+
         if (Boolean.TRUE.equals(data.getSuccess())) {
-            return "当前可用积分：" + data.getAvailablePoints() + "，总积分：" + data.getTotalPoints();
+            return "当前可用积分为：" + data.getAvailablePoints() + "，总积分为：" + data.getTotalPoints();
         }
         return "查询积分失败";
     }
@@ -104,4 +95,3 @@ public class AgentUserTool {
         return data;
     }
 }
-

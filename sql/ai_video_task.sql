@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS tb_ai_video_task (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    song_name VARCHAR(255) NOT NULL COMMENT '歌曲名称',
+    artist_name VARCHAR(255) NULL COMMENT '歌手名称',
+    audio_url VARCHAR(1000) NOT NULL COMMENT '曲库音频地址',
+    status VARCHAR(32) NOT NULL COMMENT '任务状态',
+    status_text VARCHAR(255) NULL COMMENT '状态说明',
+    mv_name VARCHAR(255) NULL COMMENT '生成后的MV名称',
+    mv_file_name VARCHAR(255) NULL COMMENT '生成后的真实文件名',
+    mv_url VARCHAR(1000) NULL COMMENT '生成后的访问地址',
+    error_message VARCHAR(1000) NULL COMMENT '失败原因',
+    start_time DATETIME NULL COMMENT '开始时间',
+    finish_time DATETIME NULL COMMENT '完成时间',
+    create_time DATETIME NOT NULL COMMENT '创建时间',
+    update_time DATETIME NOT NULL COMMENT '更新时间',
+    INDEX idx_ai_video_task_user_id (user_id),
+    INDEX idx_ai_video_task_status (status),
+    INDEX idx_ai_video_task_create_time (create_time)
+) COMMENT='AI MV生成任务表';

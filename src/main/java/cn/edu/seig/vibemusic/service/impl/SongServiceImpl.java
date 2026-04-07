@@ -32,12 +32,15 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -68,6 +71,9 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
     @Autowired
     private RedisTemplate redisTemplate;
 
+    @Value("${file.upload.url-prefix:http://localhost:8080}")
+    private String fileUrlPrefix;
+
     /**
      * 获取所有歌曲
      *
@@ -97,7 +103,10 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
 
         // 设置默认状态
         List<SongVO> songVOList = songPage.getRecords().stream()
-                .peek(songVO -> songVO.setLikeStatus(LikeStatusEnum.DEFAULT.getId()))
+                .peek(songVO -> {
+                    songVO.setLikeStatus(LikeStatusEnum.DEFAULT.getId());
+                    songVO.setCoverUrl(normalizeCoverUrl(songVO.getCoverUrl()));
+                })
                 .toList();
 
         // 如果 token 解析成功且用户为登录状态，进一步操作
@@ -171,7 +180,9 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
 
         // 用户未登录，返回随机歌曲列表
         if (map == null) {
-            return Result.success(songMapper.getRandomSongsWithArtist());
+            List<SongVO> randomSongs = songMapper.getRandomSongsWithArtist();
+            randomSongs.forEach(songVO -> songVO.setCoverUrl(normalizeCoverUrl(songVO.getCoverUrl())));
+            return Result.success(randomSongs);
         }
 
         // 获取用户 ID
@@ -180,7 +191,9 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
         // 查询用户收藏的歌曲 ID
         List<Long> favoriteSongIds = userFavoriteMapper.getFavoriteSongIdsByUserId(userId);
         if (favoriteSongIds.isEmpty()) {
-            return Result.success(songMapper.getRandomSongsWithArtist());
+            List<SongVO> randomSongs = songMapper.getRandomSongsWithArtist();
+            randomSongs.forEach(songVO -> songVO.setCoverUrl(normalizeCoverUrl(songVO.getCoverUrl())));
+            return Result.success(randomSongs);
         }
 
         // 查询用户收藏的歌曲风格并统计频率
@@ -204,6 +217,7 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
             // 根据排序后的风格推荐歌曲（排除已收藏歌曲）
             cachedSongs = songMapper.getRecommendedSongsByStyles(sortedStyleIds, favoriteSongIds, 80);
             if (!cachedSongs.isEmpty()) {
+                cachedSongs.forEach(songVO -> songVO.setCoverUrl(normalizeCoverUrl(songVO.getCoverUrl())));
                 redisTemplate.opsForList().rightPushAll(redisKey, cachedSongs);
                 // 计算到今天结束的剩余秒数
                 long secondsUntilMidnight = java.time.LocalDateTime.now()
@@ -216,6 +230,7 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
         // 随机选取 20 首
         Collections.shuffle(cachedSongs);
         List<SongVO> recommendedSongs = cachedSongs.subList(0, Math.min(20, cachedSongs.size()));
+        recommendedSongs.forEach(songVO -> songVO.setCoverUrl(normalizeCoverUrl(songVO.getCoverUrl())));
 
         // 如果推荐的歌曲不足 20 首，则用随机歌曲填充
         if (recommendedSongs.size() < 20) {
@@ -224,6 +239,7 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
             for (SongVO song : randomSongs) {
                 if (recommendedSongs.size() >= 20) break;
                 if (!addedSongIds.contains(song.getSongId())) {
+                    song.setCoverUrl(normalizeCoverUrl(song.getCoverUrl()));
                     recommendedSongs.add(song);
                 }
             }
@@ -243,6 +259,9 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
     @Cacheable(key = "#songId")
     public Result<SongDetailVO> getSongDetail(Long songId, HttpServletRequest request) {
         SongDetailVO songDetailVO = songMapper.getSongDetailById(songId);
+        if (songDetailVO != null) {
+            songDetailVO.setCoverUrl(normalizeCoverUrl(songDetailVO.getCoverUrl()));
+        }
 
         // 获取请求头中的 token
         String token = request.getHeader("Authorization");
@@ -438,12 +457,16 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
      * @return 更新结果
      */
     @Override
-    @CacheEvict(cacheNames = "songCache", allEntries = true)
+    @CacheEvict(cacheNames = {"songCache", "artistCache", "playlistCache"}, allEntries = true)
     public Result updateSongCover(Long songId, String coverUrl) {
         Song song = songMapper.selectById(songId);
         String cover = song.getCoverUrl();
         if (cover != null && !cover.isEmpty()) {
-            minioService.deleteFile(cover);
+            try {
+                minioService.deleteFile(cover);
+            } catch (Exception e) {
+                System.err.println("旧歌曲封面删除失败，继续保存新封面: " + e.getMessage());
+            }
         }
 
         song.setCoverUrl(coverUrl);
@@ -462,12 +485,16 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
      * @return 更新结果
      */
     @Override
-    @CacheEvict(cacheNames = "songCache", allEntries = true)
+    @CacheEvict(cacheNames = {"songCache", "artistCache", "playlistCache"}, allEntries = true)
     public Result updateSongAudio(Long songId, String audioUrl, String duration) {
         Song song = songMapper.selectById(songId);
         String audio = song.getAudioUrl();
         if (audio != null && !audio.isEmpty()) {
-            minioService.deleteFile(audio);
+            try {
+                minioService.deleteFile(audio);
+            } catch (Exception e) {
+                System.err.println("旧歌曲音频删除失败，继续保存新音频: " + e.getMessage());
+            }
         }
 
         song.setAudioUrl(audioUrl).setDuration(duration);
@@ -542,6 +569,19 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
         }
 
         return Result.success(MessageConstant.DELETE + MessageConstant.SUCCESS);
+    }
+
+    /**
+     * 将歌曲封面统一转换为代理地址，避免 MinIO 直链在浏览器中加载失败
+     */
+    private String normalizeCoverUrl(String coverUrl) {
+        if (coverUrl == null || coverUrl.isBlank()) {
+            return coverUrl;
+        }
+        if (coverUrl.contains("/file/proxy?path=")) {
+            return coverUrl;
+        }
+        return fileUrlPrefix + "/file/proxy?path=" + URLEncoder.encode(coverUrl, StandardCharsets.UTF_8);
     }
 
 }

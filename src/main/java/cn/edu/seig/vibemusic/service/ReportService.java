@@ -63,4 +63,12 @@ public interface ReportService {
      * @return 结果
      */
     Result rejectReport(Long reportId, String handleResult, Long handlerId);
+
+    /**
+     * 重置举报相关数据
+     *
+     * @param adminId 管理员ID
+     * @return 结果
+     */
+    Result resetReportData(Long adminId);
 }

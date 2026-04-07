@@ -6,16 +6,21 @@ import cn.edu.seig.vibemusic.mapper.CommentMapper;
 import cn.edu.seig.vibemusic.model.dto.CommentPlaylistDTO;
 import cn.edu.seig.vibemusic.model.dto.CommentSongDTO;
 import cn.edu.seig.vibemusic.model.entity.Comment;
+import cn.edu.seig.vibemusic.model.vo.CommentAdminVO;
 import cn.edu.seig.vibemusic.result.Result;
 import cn.edu.seig.vibemusic.service.ICommentService;
 import cn.edu.seig.vibemusic.util.ThreadLocalUtil;
 import cn.edu.seig.vibemusic.util.TypeConversionUtil;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -49,6 +54,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         Comment comment = new Comment();
         comment.setUserId(userId).setSongId(commentSongDTO.getSongId())
                 .setContent(commentSongDTO.getContent()).setType(0)
+                .setCommentType(0).setTargetId(commentSongDTO.getSongId())
                 .setCreateTime(LocalDateTime.now()).setLikeCount(0L);
 
         if (commentMapper.insert(comment) == 0) {
@@ -73,6 +79,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         Comment comment = new Comment();
         comment.setUserId(userId).setPlaylistId(commentPlaylistDTO.getPlaylistId())
                 .setContent(commentPlaylistDTO.getContent()).setType(1)
+                .setCommentType(1).setTargetId(commentPlaylistDTO.getPlaylistId())
                 .setCreateTime(LocalDateTime.now()).setLikeCount(0L);
 
         if (commentMapper.insert(comment) == 0) {
@@ -153,6 +160,60 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         if (commentMapper.deleteById(commentId) == 0) {
             return Result.error(MessageConstant.DELETE + MessageConstant.FAILED);
         }
+        return Result.success(MessageConstant.DELETE + MessageConstant.SUCCESS);
+    }
+
+    /**
+     * 管理端分页查询歌曲/歌单评论
+     *
+     * @param pageNum 页码
+     * @param pageSize 每页条数
+     * @param keyword 关键词
+     * @param type 评论类型
+     * @return 评论分页列表
+     */
+    @Override
+    public Result<Map<String, Object>> getAdminComments(Integer pageNum, Integer pageSize, String keyword, Integer type) {
+        Page<CommentAdminVO> page = new Page<>(pageNum, pageSize);
+        IPage<CommentAdminVO> result = commentMapper.selectAdminCommentPage(page, keyword, type);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("records", result.getRecords());
+        data.put("total", result.getTotal());
+        data.put("pageNum", pageNum);
+        data.put("pageSize", pageSize);
+        return Result.success(data);
+    }
+
+    /**
+     * 管理端删除评论
+     *
+     * @param commentId 评论 ID
+     * @return 删除结果
+     */
+    @Override
+    @CacheEvict(cacheNames = {"songCache", "playlistCache"}, allEntries = true)
+    public Result adminDeleteComment(Long commentId) {
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null) {
+            return Result.error(MessageConstant.NOT_FOUND);
+        }
+
+        if (commentMapper.deleteById(commentId) == 0) {
+            return Result.error(MessageConstant.DELETE + MessageConstant.FAILED);
+        }
+
+        // 顺带清理同一条评论下的回复，避免遗留脏数据
+        List<Comment> replies = commentMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Comment>()
+                        .eq(Comment::getParentId, commentId)
+        );
+        if (replies != null && !replies.isEmpty()) {
+            for (Comment reply : replies) {
+                commentMapper.deleteById(reply.getCommentId());
+            }
+        }
+
         return Result.success(MessageConstant.DELETE + MessageConstant.SUCCESS);
     }
 }

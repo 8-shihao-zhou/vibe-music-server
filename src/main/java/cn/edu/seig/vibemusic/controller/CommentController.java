@@ -78,4 +78,33 @@ public class CommentController {
         return commentService.deleteComment(commentId);
     }
 
+    /**
+     * 管理端分页查询歌曲/歌单评论
+     *
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @param keyword 关键词
+     * @param type 评论类型：0-歌曲评论，1-歌单评论
+     * @return 评论列表
+     */
+    @GetMapping("/admin/list")
+    public Result getAdminComments(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer type) {
+        return commentService.getAdminComments(pageNum, pageSize, keyword, type);
+    }
+
+    /**
+     * 管理端删除评论
+     *
+     * @param commentId 评论 ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/admin/{id}")
+    public Result adminDeleteComment(@PathVariable("id") Long commentId) {
+        return commentService.adminDeleteComment(commentId);
+    }
+
 }

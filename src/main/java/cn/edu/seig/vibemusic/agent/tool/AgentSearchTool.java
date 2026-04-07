@@ -1,47 +1,69 @@
 package cn.edu.seig.vibemusic.agent.tool;
 
+import cn.edu.seig.vibemusic.agent.enums.AgentActionType;
+import cn.edu.seig.vibemusic.agent.model.vo.AgentActionVO;
 import cn.edu.seig.vibemusic.agent.model.vo.AgentToolDataVO;
+import dev.langchain4j.agent.tool.Tool;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Agent 站内搜索工具
+ * 站内搜索工具。
  *
- * 作用：
- * 1. 识别用户是想搜歌曲、歌手、歌单还是社区帖子
- * 2. 提取真正的搜索关键词
- * 3. 返回前端跳转所需的页面路径和搜索参数
+ * 说明：
+ * 1. 歌曲搜索统一走全站综合搜索页 `/search`
+ * 2. 歌手、歌单、社区搜索走各自页面，并带上 query 参数
+ * 3. 这个工具只负责“搜索意图”，不负责播放歌曲
  */
 @Component
+@RequiredArgsConstructor
 public class AgentSearchTool {
 
-    /**
-     * 歌曲搜索相关别名
-     */
     private static final List<String> SONG_ALIASES = Arrays.asList("歌曲", "歌", "音乐", "单曲");
-
-    /**
-     * 歌手搜索相关别名
-     */
-    private static final List<String> ARTIST_ALIASES = Arrays.asList("歌手", "歌手页", "艺人");
-
-    /**
-     * 歌单搜索相关别名
-     */
+    private static final List<String> ARTIST_ALIASES = Arrays.asList("歌手", "艺人");
     private static final List<String> PLAYLIST_ALIASES = Arrays.asList("歌单", "收藏歌单", "歌单广场");
-
-    /**
-     * 社区搜索相关别名
-     */
     private static final List<String> COMMUNITY_ALIASES = Arrays.asList("帖子", "社区", "动态", "讨论");
 
+    private final AgentRuntimeContext agentRuntimeContext;
+
     /**
-     * 将自然语言搜索请求解析为结构化搜索结果
+     * 让大模型解析站内搜索请求，并准备前端搜索动作。
      *
-     * @param userMessage 用户原始输入
-     * @return 搜索类型、关键词以及目标页面等结构化数据
+     * @param userMessage 用户原话
+     * @return 便于模型理解的工具执行结果
+     */
+    @Tool("根据用户原话解析站内搜索意图。只适用于搜索、查找、搜一下、找一下等请求，不用于播放歌曲。歌曲搜索请准备全站综合搜索动作，其它类型准备对应页面搜索动作。")
+    public String searchSite(String userMessage) {
+        AgentToolDataVO data = resolveSearchData(userMessage);
+        agentRuntimeContext.setToolData(data);
+
+        if (!Boolean.TRUE.equals(data.getSuccess())) {
+            return "未识别到明确的站内搜索意图";
+        }
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("path", data.getPagePath());
+        payload.put("pageName", data.getPageName());
+        payload.put("searchType", data.getSearchType());
+        payload.put("keyword", data.getSearchKeyword());
+
+        agentRuntimeContext.addAction(new AgentActionVO(AgentActionType.SEARCH_SITE.getCode(), payload));
+
+        return String.format(
+                "已解析站内搜索：type=%s，keyword=%s，page=%s，已准备搜索动作",
+                data.getSearchType(),
+                data.getSearchKeyword(),
+                data.getPageName()
+        );
+    }
+
+    /**
+     * 结构化搜索解析方法
      */
     public AgentToolDataVO resolveSearchData(String userMessage) {
         AgentToolDataVO data = new AgentToolDataVO();
@@ -80,8 +102,9 @@ public class AgentSearchTool {
                 break;
             case "song":
             default:
-                data.setPagePath("/library");
-                data.setPageName("音乐库");
+                // 歌曲页本身没有搜索框，因此统一走全站综合搜索
+                data.setPagePath("/search");
+                data.setPageName("全站综合搜索");
                 break;
         }
 
@@ -90,10 +113,7 @@ public class AgentSearchTool {
     }
 
     /**
-     * 检测当前搜索属于哪一种业务类型
-     *
-     * @param message 标准化后的消息
-     * @return 搜索类型编码
+     * 判断搜索属于哪一类
      */
     private String detectSearchType(String message) {
         if (containsAny(message, ARTIST_ALIASES)) {
@@ -109,16 +129,10 @@ public class AgentSearchTool {
     }
 
     /**
-     * 从用户输入中提取真正用于搜索的关键词
-     *
-     * @param message 标准化后的消息
-     * @param searchType 当前识别出的搜索类型
-     * @return 提取后的搜索关键词
+     * 提取真正用于搜索的关键词
      */
     private String extractKeyword(String message, String searchType) {
-        String keyword = message;
-
-        keyword = keyword
+        String keyword = message
                 .replace("帮我", "")
                 .replace("请帮我", "")
                 .replace("我想", "")
@@ -133,7 +147,7 @@ public class AgentSearchTool {
                 .replace("站内", "")
                 .replace("里面", "")
                 .replace("相关", "")
-                .replace("一下", "")
+                .replace("一个", "")
                 .replace("看看", "")
                 .replace("的", " ")
                 .trim();
@@ -151,9 +165,6 @@ public class AgentSearchTool {
         return keyword.replaceAll("\\s+", " ").trim();
     }
 
-    /**
-     * 去除某一类搜索别名，尽量保留真正的搜索内容
-     */
     private String removeAliases(String text, List<String> aliases) {
         String result = text;
         for (String alias : aliases) {
@@ -162,9 +173,6 @@ public class AgentSearchTool {
         return result;
     }
 
-    /**
-     * 判断文本中是否包含任意一个别名
-     */
     private boolean containsAny(String text, List<String> aliases) {
         for (String alias : aliases) {
             if (text.contains(alias)) {
@@ -174,9 +182,6 @@ public class AgentSearchTool {
         return false;
     }
 
-    /**
-     * 标准化用户输入，统一为小写并去掉首尾空白
-     */
     private String normalizeMessage(String userMessage) {
         return userMessage.trim().toLowerCase();
     }

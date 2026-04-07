@@ -14,4 +14,9 @@ public interface AIService {
      * @return 生成的视频访问 URL
      */
     String generateVideo(MultipartFile file, String songName);
+
+    /**
+     * 根据曲库音频地址生成 MV
+     */
+    String generateVideoFromAudioUrl(Long userId, String audioUrl, String songName, String styleCode);
 }

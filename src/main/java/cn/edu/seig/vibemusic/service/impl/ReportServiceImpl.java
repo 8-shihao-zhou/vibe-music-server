@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * 举报服务实现类
@@ -97,7 +98,8 @@ public class ReportServiceImpl implements ReportService {
         LambdaQueryWrapper<Report> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Report::getReporterId, reporterId)
                .eq(Report::getTargetType, targetType)
-               .eq(Report::getTargetId, targetId);
+               .eq(Report::getTargetId, targetId)
+               .eq(Report::getStatus, 0);
         return reportMapper.selectCount(wrapper) > 0;
     }
 
@@ -143,6 +145,9 @@ public class ReportServiceImpl implements ReportService {
             return Result.error("处理失败");
         }
 
+        // 处理举报时同步处置对应内容，避免管理员还要再次手动删除
+        disposeReportedContent(report.getTargetType(), report.getTargetId());
+
         // 发送通知
         sendReportNotifications(report, handleResult, true);
 
@@ -179,6 +184,17 @@ public class ReportServiceImpl implements ReportService {
         log.info(">>> [举报] 管理员 {} 驳回了举报 ID={}", handlerId, reportId);
 
         return Result.success("驳回成功");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result resetReportData(Long adminId) {
+        // 只清理举报记录与举报统计，不动帖子、评论等业务数据
+        reportStatsMapper.deleteAllReportStats();
+        reportMapper.deleteAllReports();
+
+        log.warn(">>> [举报] 管理员 {} 已清空全部举报记录与举报统计", adminId);
+        return Result.success("举报数据已重置");
     }
 
     /**
@@ -244,8 +260,57 @@ public class ReportServiceImpl implements ReportService {
             }
         } else if (targetType == 2) {
             // 删除评论
-            commentMapper.deleteById(targetId);
+            deleteReportedComment(targetId);
             log.warn(">>> [举报] 评论 ID={} 因举报次数过多被自动删除", targetId);
+        }
+    }
+
+    /**
+     * 管理员处理举报后，直接执行对应内容处置
+     */
+    private void disposeReportedContent(Integer targetType, Long targetId) {
+        if (targetType == null || targetId == null) {
+            return;
+        }
+
+        if (targetType == 1) {
+            CommunityPost post = communityPostMapper.selectById(targetId);
+            if (post != null && post.getStatus() != -1) {
+                post.setStatus(-1);
+                communityPostMapper.updateById(post);
+            }
+        } else if (targetType == 2) {
+            deleteReportedComment(targetId);
+        }
+    }
+
+    /**
+     * 删除被举报评论，并处理社区评论的回复与计数
+     */
+    private void deleteReportedComment(Long commentId) {
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null) {
+            return;
+        }
+
+        commentMapper.deleteById(commentId);
+
+        if (comment.getCommentType() != null && comment.getCommentType() == 3 && comment.getTargetId() != null) {
+            communityPostMapper.decrementCommentCount(comment.getTargetId());
+        }
+
+        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Comment::getParentId, commentId);
+        List<Comment> replies = commentMapper.selectList(wrapper);
+        if (replies == null || replies.isEmpty()) {
+            return;
+        }
+
+        for (Comment reply : replies) {
+            commentMapper.deleteById(reply.getCommentId());
+            if (comment.getCommentType() != null && comment.getCommentType() == 3 && comment.getTargetId() != null) {
+                communityPostMapper.decrementCommentCount(comment.getTargetId());
+            }
         }
     }
 

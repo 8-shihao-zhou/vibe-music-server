@@ -28,11 +28,15 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,6 +60,9 @@ public class ArtistServiceImpl extends ServiceImpl<ArtistMapper, Artist> impleme
     private UserFavoriteMapper userFavoriteMapper;
     @Autowired
     private MinioService minioService;
+
+    @Value("${file.upload.url-prefix:http://localhost:8080}")
+    private String fileUrlPrefix;
 
     /**
      * 获取所有歌手列表
@@ -191,10 +198,19 @@ public class ArtistServiceImpl extends ServiceImpl<ArtistMapper, Artist> impleme
     @Cacheable(key = "#artistId")
     public Result<ArtistDetailVO> getArtistDetail(Long artistId, HttpServletRequest request) {
         ArtistDetailVO artistDetailVO = artistMapper.getArtistDetailById(artistId);
+        if (artistDetailVO == null) {
+            return Result.success(MessageConstant.DATA_NOT_FOUND, null);
+        }
 
         // 设置默认状态
         List<SongVO> songVOList = artistDetailVO.getSongs();
-        songVOList.forEach(songVO -> songVO.setLikeStatus(LikeStatusEnum.DEFAULT.getId()));
+        if (songVOList == null) {
+            songVOList = new ArrayList<>();
+        }
+        songVOList.forEach(songVO -> {
+            songVO.setLikeStatus(LikeStatusEnum.DEFAULT.getId());
+            songVO.setCoverUrl(normalizeCoverUrl(songVO.getCoverUrl()));
+        });
 
         // 获取请求头中的 token
         String token = request.getHeader("Authorization");
@@ -386,6 +402,19 @@ public class ArtistServiceImpl extends ServiceImpl<ArtistMapper, Artist> impleme
         }
 
         return Result.success(MessageConstant.DELETE + MessageConstant.SUCCESS);
+    }
+
+    /**
+     * 将歌曲封面统一转换为代理地址，避免 MinIO 直链在浏览器中加载失败
+     */
+    private String normalizeCoverUrl(String coverUrl) {
+        if (coverUrl == null || coverUrl.isBlank()) {
+            return coverUrl;
+        }
+        if (coverUrl.contains("/file/proxy?path=")) {
+            return coverUrl;
+        }
+        return fileUrlPrefix + "/file/proxy?path=" + URLEncoder.encode(coverUrl, StandardCharsets.UTF_8);
     }
 
 }

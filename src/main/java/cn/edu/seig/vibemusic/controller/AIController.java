@@ -1,22 +1,40 @@
 package cn.edu.seig.vibemusic.controller;
 
+import cn.edu.seig.vibemusic.model.dto.AiVideoTaskCreateDTO;
+import cn.edu.seig.vibemusic.model.vo.AiVideoTaskVO;
 import cn.edu.seig.vibemusic.result.Result;
 import cn.edu.seig.vibemusic.service.AIService;
+import cn.edu.seig.vibemusic.service.IAiVideoTaskService;
+import cn.edu.seig.vibemusic.service.IPointsService;
+import cn.edu.seig.vibemusic.utils.UserContext;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value; // 👈 必须导入这个
-import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -26,147 +44,133 @@ public class AIController {
     private AIService aiService;
 
     @Autowired
-    private cn.edu.seig.vibemusic.service.IPointsService pointsService;
+    private IPointsService pointsService;
 
-    // 👇👇👇 【修复点】在这里注入存储路径 👇👇👇
+    @Autowired
+    private IAiVideoTaskService aiVideoTaskService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Value("${ai.storage-path}")
     private String storagePath;
-    // 👆👆👆 加上这一行，storagePath 就不报错了
+
+    private static final String FILE_URL_PREFIX = "http://localhost:8080/files/";
 
     /**
-     * 生成 AI 音乐视频
-     * 地址: POST http://localhost:8080/api/ai/generate
+     * 兼容旧版同步生成接口
      */
     @PostMapping("/generate")
     public Result<String> generateVideo(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "songName", required = false) String songName) {
-        // 1. 校验文件
         if (file.isEmpty()) {
-            return Result.error("请上传音频文件");
+            return Result.error("请先上传音频文件");
         }
 
         try {
-            // 2. 调用 Service 核心逻辑，传递歌曲名
             String videoUrl = aiService.generateVideo(file, songName);
 
-            // 3. AI创作成功后增加积分
-            Long userId = cn.edu.seig.vibemusic.utils.UserContext.getUserId();
+            Long userId = UserContext.getUserId();
             if (userId != null) {
                 try {
                     pointsService.addPoints(userId, "MV_CREATE", null);
                 } catch (Exception e) {
-                    System.err.println("增加AI创作积分失败: " + e.getMessage());
+                    System.err.println("AI 创作积分增加失败: " + e.getMessage());
                 }
             }
 
-            // 4. 返回成功结果 (code=0, data=视频地址)
             return Result.success(videoUrl);
-
         } catch (Exception e) {
-            // 5. 返回失败结果 (code=1, msg=错误信息)
             return Result.error(e.getMessage());
         }
     }
 
     /**
-     * 获取历史生成记录列表（仅返回当前用户的）
-     * 地址: GET http://localhost:8080/api/ai/history
+     * 创建异步 AI MV 任务
+     */
+    @PostMapping("/tasks")
+    public Result<AiVideoTaskVO> createTask(@RequestBody AiVideoTaskCreateDTO dto) {
+        Long userId = UserContext.getUserId();
+        return aiVideoTaskService.createTask(userId, dto);
+    }
+
+    /**
+     * 获取当前用户的任务列表
+     */
+    @GetMapping("/tasks")
+    public Result<List<AiVideoTaskVO>> getTaskList() {
+        Long userId = UserContext.getUserId();
+        return aiVideoTaskService.getCurrentUserTasks(userId);
+    }
+
+    /**
+     * 删除当前用户的任务记录
+     */
+    @DeleteMapping("/tasks/{taskId}")
+    public Result<String> deleteTask(@PathVariable("taskId") Long taskId) {
+        Long userId = UserContext.getUserId();
+        return aiVideoTaskService.deleteCurrentUserTask(userId, taskId);
+    }
+
+    /**
+     * 获取当前用户的历史生成记录
      */
     @GetMapping("/history")
     public Result<List<Map<String, Object>>> getHistory() {
-        // 获取当前登录用户ID
-        Long userId = cn.edu.seig.vibemusic.utils.UserContext.getUserId();
-        System.out.println(">>> [DEBUG] 当前用户ID: " + userId);
-        
+        Long userId = UserContext.getUserId();
         if (userId == null) {
-            System.out.println(">>> [DEBUG] 用户未登录");
             return Result.error("用户未登录");
         }
 
-        // 用户专属目录
         String userStoragePath = storagePath + "user_" + userId + File.separator;
-        System.out.println(">>> [DEBUG] 用户存储路径: " + userStoragePath);
-        
         File dir = new File(userStoragePath);
-        System.out.println(">>> [DEBUG] 目录是否存在: " + dir.exists());
-
         if (!dir.exists()) {
-            System.out.println(">>> [DEBUG] 目录不存在，返回空列表");
             return Result.success(new ArrayList<>());
         }
 
         File[] files = dir.listFiles();
-        System.out.println(">>> [DEBUG] 文件数量: " + (files != null ? files.length : 0));
-        
         if (files == null) {
-            System.out.println(">>> [DEBUG] 无法读取文件列表");
             return Result.success(new ArrayList<>());
         }
 
-        // 打印所有文件名
-        for (File f : files) {
-            System.out.println(">>> [DEBUG] 发现文件: " + f.getName() + " (是否为mp4: " + f.getName().toLowerCase().endsWith(".mp4") + ")");
-        }
-
-        // 读取歌曲名映射文件
-        Map<String, String> songMappings = new HashMap<>();
-        File mappingFile = new File(userStoragePath + "song_mapping.json");
-        if (mappingFile.exists()) {
-            try {
-                String content = new String(java.nio.file.Files.readAllBytes(mappingFile.toPath()));
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                songMappings = mapper.readValue(content, Map.class);
-                System.out.println(">>> [DEBUG] 读取到歌曲映射: " + songMappings.size() + " 条");
-            } catch (Exception e) {
-                System.err.println(">>> [DEBUG] 读取歌曲名映射文件失败: " + e.getMessage());
-            }
-        }
-
-        // 1. 过滤出 .mp4 文件（不限制文件名前缀）
-        // 2. 按最后修改时间倒序排列 (最新的在前面)
-        // 3. 封装成前端需要的格式
+        Map<String, String> songMappings = readSongMappings(userStoragePath);
         final Map<String, String> finalMappings = songMappings;
+
         List<Map<String, Object>> list = Arrays.stream(files)
-                .filter(f -> f.getName().toLowerCase().endsWith(".mp4"))
+                .filter(file -> file.getName().toLowerCase().endsWith(".mp4"))
                 .sorted(Comparator.comparingLong(File::lastModified).reversed())
-                .map(f -> {
+                .map(file -> {
                     Map<String, Object> map = new HashMap<>();
-                    String fileName = f.getName();
-                    // 优先使用歌曲名，如果没有则使用文件名
-                    String displayName = finalMappings.getOrDefault(fileName, fileName);
-                    map.put("fileName", displayName);
-                    // 拼接完整访问 URL（包含用户ID路径）
-                    map.put("url", "http://localhost:8080/files/user_" + userId + "/" + fileName);
-                    // 格式化时间
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                    map.put("createTime", sdf.format(new Date(f.lastModified())));
-                    // 文件大小 (MB)
-                    map.put("size", String.format("%.2f MB", f.length() / 1024.0 / 1024.0));
+                    String fileName = file.getName();
+                    String mvName = stripMp4Suffix(fileName);
+
+                    map.put("fileName", fileName);
+                    map.put("mvName", mvName);
+                    map.put("songName", finalMappings.getOrDefault(fileName, ""));
+                    map.put("url", buildFileUrl(userId, fileName));
+                    map.put("createTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                            .format(new Date(file.lastModified())));
+                    map.put("size", String.format("%.2f MB", file.length() / 1024.0 / 1024.0));
                     return map;
                 })
                 .collect(Collectors.toList());
 
-        System.out.println(">>> [DEBUG] 返回MV数量: " + list.size());
         return Result.success(list);
     }
 
     /**
-     * 重命名MV文件
-     * 地址: PUT http://localhost:8080/api/ai/rename
+     * 重命名作品文件，并同步更新歌曲映射与任务记录
      */
     @PutMapping("/rename")
     public Result<String> renameMvFile(
             @RequestParam("oldFileName") String oldFileName,
             @RequestParam("newFileName") String newFileName) {
-        
-        // 获取当前登录用户ID
-        Long userId = cn.edu.seig.vibemusic.utils.UserContext.getUserId();
+        Long userId = UserContext.getUserId();
         if (userId == null) {
             return Result.error("用户未登录");
         }
 
-        // 参数校验
         if (oldFileName == null || oldFileName.trim().isEmpty()) {
             return Result.error("原文件名不能为空");
         }
@@ -174,63 +178,103 @@ public class AIController {
             return Result.error("新文件名不能为空");
         }
 
-        // 确保新文件名不包含.mp4扩展名（前端已处理，这里再次确认）
-        newFileName = newFileName.trim();
-        if (newFileName.toLowerCase().endsWith(".mp4")) {
-            newFileName = newFileName.substring(0, newFileName.length() - 4);
+        String normalizedName = newFileName.trim();
+        if (normalizedName.toLowerCase().endsWith(".mp4")) {
+            normalizedName = normalizedName.substring(0, normalizedName.length() - 4);
         }
 
-        // 验证文件名合法性（不能包含特殊字符）
-        if (newFileName.matches(".*[/\\\\:*?\"<>|].*")) {
-            return Result.error("文件名不能包含特殊字符: / \\ : * ? \" < > |");
+        if (normalizedName.matches(".*[/\\\\:*?\"<>|].*")) {
+            return Result.error("文件名不能包含特殊字符 / \\ : * ? \" < > |");
         }
 
         try {
-            // 用户专属目录
             String userStoragePath = storagePath + "user_" + userId + File.separator;
             File dir = new File(userStoragePath);
-            
             if (!dir.exists()) {
                 return Result.error("用户目录不存在");
             }
 
-            // 旧文件
             File oldFile = new File(dir, oldFileName);
             if (!oldFile.exists()) {
                 return Result.error("原文件不存在");
             }
 
-            // 新文件名（保留.mp4扩展名）
-            String newFileNameWithExt = newFileName + ".mp4";
+            String newFileNameWithExt = normalizedName + ".mp4";
             File newFile = new File(dir, newFileNameWithExt);
-            
-            // 检查新文件名是否已存在
             if (newFile.exists() && !oldFile.equals(newFile)) {
                 return Result.error("文件名已存在");
             }
 
-            // 重命名文件
             boolean success = oldFile.renameTo(newFile);
             if (!success) {
                 return Result.error("重命名失败");
             }
 
-            // 如果有对应的封面文件，也一起重命名
-            String oldCoverName = oldFileName.replace("mv_", "cover_").replace(".mp4", ".jpg");
-            File oldCoverFile = new File(dir, oldCoverName);
-            if (oldCoverFile.exists()) {
-                String newCoverName = newFileNameWithExt.replace(".mp4", ".jpg");
-                File newCoverFile = new File(dir, newCoverName);
-                oldCoverFile.renameTo(newCoverFile);
-            }
-
-            System.out.println(">>> [重命名] 成功: " + oldFileName + " -> " + newFileNameWithExt);
+            syncSongMappingsAfterRename(userStoragePath, oldFileName, newFileNameWithExt);
+            aiVideoTaskService.syncTaskMediaAfterRename(userId, oldFileName, newFileNameWithExt);
             return Result.success("重命名成功");
-
         } catch (Exception e) {
-            System.err.println(">>> [重命名] 失败: " + e.getMessage());
-            e.printStackTrace();
             return Result.error("重命名失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * 读取歌曲名映射
+     */
+    private Map<String, String> readSongMappings(String userStoragePath) {
+        File mappingFile = new File(userStoragePath + "song_mapping.json");
+        if (!mappingFile.exists()) {
+            return new HashMap<>();
+        }
+
+        try {
+            String content = Files.readString(mappingFile.toPath(), StandardCharsets.UTF_8);
+            return objectMapper.readValue(content, new TypeReference<Map<String, String>>() {
+            });
+        } catch (Exception e) {
+            System.err.println("读取歌曲映射失败: " + e.getMessage());
+            return new HashMap<>();
+        }
+    }
+
+    /**
+     * 在重命名作品后，同步更新 song_mapping.json 中的键名。
+     */
+    private void syncSongMappingsAfterRename(String userStoragePath, String oldFileName, String newFileName) {
+        File mappingFile = new File(userStoragePath + "song_mapping.json");
+        if (!mappingFile.exists()) {
+            return;
+        }
+
+        try {
+            Map<String, String> mappings = readSongMappings(userStoragePath);
+            if (!mappings.containsKey(oldFileName)) {
+                return;
+            }
+
+            String songName = mappings.remove(oldFileName);
+            Map<String, String> orderedMappings = new LinkedHashMap<>(mappings);
+            orderedMappings.put(newFileName, songName);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(mappingFile, orderedMappings);
+        } catch (Exception e) {
+            System.err.println("同步歌曲映射失败: " + e.getMessage());
+        }
+    }
+
+    private String buildFileUrl(Long userId, String fileName) {
+        return FILE_URL_PREFIX + "user_" + userId + "/" + fileName;
+    }
+
+    /**
+     * 去掉 mp4 后缀，便于前端直接展示作品名
+     */
+    private String stripMp4Suffix(String fileName) {
+        if (fileName == null) {
+            return "";
+        }
+        if (fileName.toLowerCase().endsWith(".mp4")) {
+            return fileName.substring(0, fileName.length() - 4);
+        }
+        return fileName;
     }
 }

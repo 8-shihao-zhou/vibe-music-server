@@ -6,6 +6,8 @@ import cn.edu.seig.vibemusic.model.entity.Comment;
 import cn.edu.seig.vibemusic.result.Result;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.util.Map;
+
 /**
  * <p>
  * 服务类
@@ -30,5 +32,11 @@ public interface ICommentService extends IService<Comment> {
 
     // 删除评论
     Result deleteComment(Long commentId);
+
+    // 管理端分页查询评论
+    Result<Map<String, Object>> getAdminComments(Integer pageNum, Integer pageSize, String keyword, Integer type);
+
+    // 管理端删除评论
+    Result adminDeleteComment(Long commentId);
 
 }

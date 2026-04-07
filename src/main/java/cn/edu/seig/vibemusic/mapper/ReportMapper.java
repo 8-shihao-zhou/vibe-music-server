@@ -5,6 +5,7 @@ import cn.edu.seig.vibemusic.model.vo.ReportVO;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -28,4 +29,12 @@ public interface ReportMapper extends BaseMapper<Report> {
     IPage<ReportVO> selectReportPage(Page<ReportVO> page, 
                                       @Param("status") Integer status,
                                       @Param("targetType") Integer targetType);
+
+    /**
+     * 清空全部举报记录
+     *
+     * @return 影响行数
+     */
+    @Delete("DELETE FROM tb_report")
+    int deleteAllReports();
 }

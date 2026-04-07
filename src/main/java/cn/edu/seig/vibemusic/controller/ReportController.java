@@ -86,11 +86,23 @@ public class ReportController {
      */
     @PostMapping("/admin/reject/{reportId}")
     public Result rejectReport(@PathVariable Long reportId,
-                                @RequestParam String handleResult) {
+                                 @RequestParam String handleResult) {
         Map<String, Object> map = ThreadLocalUtil.get();
         Long adminId = TypeConversionUtil.toLong(map.get(JwtClaimsConstant.ADMIN_ID));
         
         log.info(">>> [举报] 管理员 {} 驳回举报 ID={}", adminId, reportId);
         return reportService.rejectReport(reportId, handleResult, adminId);
+    }
+
+    /**
+     * 重置举报数据（管理员）
+     */
+    @DeleteMapping("/admin/reset")
+    public Result resetReportData() {
+        Map<String, Object> map = ThreadLocalUtil.get();
+        Long adminId = TypeConversionUtil.toLong(map.get(JwtClaimsConstant.ADMIN_ID));
+
+        log.warn(">>> [举报] 管理员 {} 重置了举报数据", adminId);
+        return reportService.resetReportData(adminId);
     }
 }

@@ -45,6 +45,7 @@ public class AgentConfig {
      * @param agentMusicTool 音乐工具
      * @param agentUserTool 用户工具
      * @param agentNavigationTool 页面导航工具
+     * @param agentSearchTool 搜索工具
      * @return 音乐智能体助手实例
      */
     @Bean
