@@ -8,12 +8,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Agent 运行时上下文。
+ * Agent运行时上下文。
  *
  * 作用：
- * 1. 让工具在被大模型调用时，也能把结构化结果回填给后端
- * 2. 保持前端现有的 reply/actions/toolData 协议不变
- * 3. 避免把前端协议拼装逻辑继续写死在 Service 的 if/else 中
+ * 1.让工具在被大模型调用时，也能把结构化结果回填给后端
+ * 2.保持前端现有的 reply/actions/toolData 协议不变
+ * 3.避免把前端协议拼装逻辑继续写死在 Service 的 if/else 中
  */
 @Component
 public class AgentRuntimeContext {

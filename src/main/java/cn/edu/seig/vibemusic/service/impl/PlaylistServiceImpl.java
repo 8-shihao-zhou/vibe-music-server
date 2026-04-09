@@ -140,7 +140,8 @@ public class PlaylistServiceImpl extends ServiceImpl<PlaylistMapper, Playlist> i
 
         Map<String, Object> map = null;
         if (token != null && !token.isEmpty()) {
-            map = JwtUtil.parseToken(token);
+            //map = JwtUtil.parseToken(token);
+            map = JwtUtil.parseTokenSafely(token);
         }
 
         Long userId = null;
@@ -226,7 +227,8 @@ public class PlaylistServiceImpl extends ServiceImpl<PlaylistMapper, Playlist> i
 
         Map<String, Object> map = null;
         if (token != null && !token.isEmpty()) {
-            map = JwtUtil.parseToken(token);
+            //map = JwtUtil.parseToken(token);
+            map = JwtUtil.parseTokenSafely(token);
         }
 
         // 如果 token 解析成功且用户为登录状态，进一步操作

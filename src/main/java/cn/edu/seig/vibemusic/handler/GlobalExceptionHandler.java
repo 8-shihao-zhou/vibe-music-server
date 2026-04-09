@@ -1,9 +1,12 @@
 package cn.edu.seig.vibemusic.handler;
 
 import cn.edu.seig.vibemusic.constant.MessageConstant;
+import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.exceptions.TokenExpiredException;
 import lombok.extern.slf4j.Slf4j;
 import cn.edu.seig.vibemusic.result.Result;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -82,4 +85,14 @@ public class GlobalExceptionHandler {
     //    String message = StringUtils.hasLength(ex.getMessage()) ? ex.getMessage() : MessageConstant.UNKNOWN_ERROR;
     //    return errorResult(message);
     //}
+
+    // 处理JWT异常
+    @ExceptionHandler({TokenExpiredException.class, JWTVerificationException.class})
+    public ResponseEntity<Result> handleJwtException(Exception ex) {
+        log.warn("登录态失效: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(Result.error("登录已过期，请重新登录"));
+    }
+
 }

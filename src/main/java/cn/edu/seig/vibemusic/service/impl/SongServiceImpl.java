@@ -90,9 +90,13 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
         }
 
         Map<String, Object> map = null;
+        //if (token != null && !token.isEmpty()) {
+        //    map = JwtUtil.parseToken(token);
+        //}
         if (token != null && !token.isEmpty()) {
-            map = JwtUtil.parseToken(token);
+            map = JwtUtil.parseTokenSafely(token);
         }
+
 
         // 查询歌曲列表
         Page<SongVO> page = new Page<>(songDTO.getPageNum(), songDTO.getPageSize());
@@ -174,9 +178,13 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
         }
 
         Map<String, Object> map = null;
+        //if (token != null && !token.isEmpty()) {
+        //    map = JwtUtil.parseToken(token);
+        //}
         if (token != null && !token.isEmpty()) {
-            map = JwtUtil.parseToken(token);
+            map = JwtUtil.parseTokenSafely(token);
         }
+
 
         // 用户未登录，返回随机歌曲列表
         if (map == null) {
@@ -270,9 +278,13 @@ public class SongServiceImpl extends ServiceImpl<SongMapper, Song> implements IS
         }
 
         Map<String, Object> map = null;
+        //if (token != null && !token.isEmpty()) {
+        //    map = JwtUtil.parseToken(token);
+        //}
         if (token != null && !token.isEmpty()) {
-            map = JwtUtil.parseToken(token);
+            map = JwtUtil.parseTokenSafely(token);
         }
+
 
         // 如果 token 解析成功且用户为登录状态，进一步操作
         if (map != null) {

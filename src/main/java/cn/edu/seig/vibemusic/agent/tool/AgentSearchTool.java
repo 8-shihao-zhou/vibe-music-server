@@ -16,9 +16,9 @@ import java.util.Map;
  * 站内搜索工具。
  *
  * 说明：
- * 1. 歌曲搜索统一走全站综合搜索页 `/search`
- * 2. 歌手、歌单、社区搜索走各自页面，并带上 query 参数
- * 3. 这个工具只负责“搜索意图”，不负责播放歌曲
+ * 1.歌曲搜索统一走全站综合搜索页 `/search`
+ * 2.歌手、歌单、社区搜索走各自页面，并带上 query 参数
+ * 3.这个工具只负责“搜索意图”，不负责播放歌曲
  */
 @Component
 @RequiredArgsConstructor
@@ -33,27 +33,34 @@ public class AgentSearchTool {
 
     /**
      * 让大模型解析站内搜索请求，并准备前端搜索动作。
-     *
      * @param userMessage 用户原话
      * @return 便于模型理解的工具执行结果
      */
     @Tool("根据用户原话解析站内搜索意图。只适用于搜索、查找、搜一下、找一下等请求，不用于播放歌曲。歌曲搜索请准备全站综合搜索动作，其它类型准备对应页面搜索动作。")
     public String searchSite(String userMessage) {
+
+        //解析用户原话，拆出 搜索类型/关键词/页面/是否成功
         AgentToolDataVO data = resolveSearchData(userMessage);
+
+        //把解析结果存入AI智能体上下文
         agentRuntimeContext.setToolData(data);
 
+        //如果解析失败 → 直接返回未识别
         if (!Boolean.TRUE.equals(data.getSuccess())) {
             return "未识别到明确的站内搜索意图";
         }
 
+        //构造前端执行搜索需要的参数（路径、页面名、搜索类型、关键词）
         Map<String, Object> payload = new HashMap<>();
         payload.put("path", data.getPagePath());
         payload.put("pageName", data.getPageName());
         payload.put("searchType", data.getSearchType());
         payload.put("keyword", data.getSearchKeyword());
 
+        //给前端添加一个“站内搜索”动作
         agentRuntimeContext.addAction(new AgentActionVO(AgentActionType.SEARCH_SITE.getCode(), payload));
 
+        //返回自然语言结果，让大模型读得懂
         return String.format(
                 "已解析站内搜索：type=%s，keyword=%s，page=%s，已准备搜索动作",
                 data.getSearchType(),
@@ -74,8 +81,13 @@ public class AgentSearchTool {
             return data;
         }
 
+        //用户信息标准化
         String normalized = normalizeMessage(userMessage);
+
+        //判断属于哪一类
         String searchType = detectSearchType(normalized);
+
+        //提取关键词
         String keyword = extractKeyword(normalized, searchType);
 
         if (keyword == null || keyword.isBlank()) {
@@ -102,7 +114,7 @@ public class AgentSearchTool {
                 break;
             case "song":
             default:
-                // 歌曲页本身没有搜索框，因此统一走全站综合搜索
+                //歌曲页本身没有搜索框，因此统一走全站综合搜索
                 data.setPagePath("/search");
                 data.setPageName("全站综合搜索");
                 break;
@@ -165,6 +177,7 @@ public class AgentSearchTool {
         return keyword.replaceAll("\\s+", " ").trim();
     }
 
+    //批量把文本里的指定词语删掉
     private String removeAliases(String text, List<String> aliases) {
         String result = text;
         for (String alias : aliases) {
@@ -173,6 +186,7 @@ public class AgentSearchTool {
         return result;
     }
 
+    //判断一段文本里，是否包含列表里的任意一个词
     private boolean containsAny(String text, List<String> aliases) {
         for (String alias : aliases) {
             if (text.contains(alias)) {
@@ -182,6 +196,7 @@ public class AgentSearchTool {
         return false;
     }
 
+    //把用户输入的消息标准化：去空格 + 转小写
     private String normalizeMessage(String userMessage) {
         return userMessage.trim().toLowerCase();
     }

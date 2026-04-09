@@ -80,9 +80,13 @@ public class AgentMusicTool {
         String artistName = null;
         String songName = normalizedKeyword;
 
-        // 支持“周杰伦的晴天”这种说法
+        //拆分用户说的：“歌手 的 歌曲”
         if (normalizedKeyword.contains("的")) {
+
+            //以“的”为分隔符，切成两段（只切2段）
             String[] parts = normalizedKeyword.split("的", 2);
+
+            //如果成功分成两段
             if (parts.length == 2) {
                 artistName = safeTrim(parts[0]);
                 songName = safeTrim(parts[1]);

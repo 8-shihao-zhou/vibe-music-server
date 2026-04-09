@@ -2,6 +2,7 @@ package cn.edu.seig.vibemusic.util;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTVerificationException;
 
 import java.util.Date;
 import java.util.Map;
@@ -41,6 +42,20 @@ public class JwtUtil {
                 .verify(token)
                 .getClaim("claims")
                 .asMap();
+    }
+
+    /**
+     * 安全地解析 JWT token
+     *
+     * @param token JWT token
+     * @return 自定义的业务数据
+     */
+    public static Map<String, Object> parseTokenSafely(String token) {
+        try {
+            return parseToken(token);
+        } catch (JWTVerificationException | IllegalArgumentException e) {
+            return null;
+        }
     }
 
 }

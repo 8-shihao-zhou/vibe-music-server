@@ -40,26 +40,40 @@ public class AgentChatServiceImpl implements AgentChatService {
         }
 
         try {
-            // 每次请求开始前初始化上下文，供工具记录结构化结果
+            //每次请求开始前初始化上下文，供工具记录结构化结果
             agentRuntimeContext.start(request.getUserId(), request.getSessionId());
 
+            //调用AI大模型进行对话处理
             String reply = musicAgentAssistant.chat(message.trim());
+
+            //获取当前请求的AI上下文状态（包含本次对话产生的所有动作、解析数据）
             AgentRuntimeContext.State state = agentRuntimeContext.current();
+
+            //从上下文中获取大模型解析后的结构化数据（搜索关键词、页面信息等）
             AgentToolDataVO toolData = state.getToolData();
 
+            //如果AI生成了需要前端执行的动作（跳转页面、搜索、播放歌曲等）
             if (state.getActions() != null && !state.getActions().isEmpty()) {
                 actions.addAll(state.getActions());
             }
 
+            //组装最终返回给前端的回复内容（结合AI回复+结构化数据+动作）
             response.setReply(normalizeReply(reply, toolData, actions));
+
+            // 把前端要执行的动作列表设置到响应中
             response.setActions(actions);
+
+            //把工具解析的结构化数据一起返回（前端可用于展示/逻辑处理）
             response.setToolData(toolData);
+
             return response;
         } catch (Exception e) {
             response.setReply("智能助手暂时不可用，请稍后再试。");
             response.setActions(actions);
             return response;
         } finally {
+
+            //必须执行：清理上下文
             agentRuntimeContext.clear();
         }
     }

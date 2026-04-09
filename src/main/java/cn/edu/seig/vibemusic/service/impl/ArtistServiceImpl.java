@@ -219,9 +219,13 @@ public class ArtistServiceImpl extends ServiceImpl<ArtistMapper, Artist> impleme
         }
 
         Map<String, Object> map = null;
+        //if (token != null && !token.isEmpty()) {
+        //    map = JwtUtil.parseToken(token);
+        //}
         if (token != null && !token.isEmpty()) {
-            map = JwtUtil.parseToken(token);
+            map = JwtUtil.parseTokenSafely(token);
         }
+
 
         // 如果 token 解析成功且用户为登录状态，进一步操作
         if (map != null) {
